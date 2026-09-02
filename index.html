@@ -340,25 +340,31 @@ function mHat(t, gain) {
 function musicTick() {
   if (!AC || !musicGain) return;
   const rushing = state === 'play' && worldT < frenzyUntil; // la boucle s'emballe en FOMO
-  // pendant le rush : plus fort, basse à chaque temps, arpège en dents de scie, charley doublé
-  if (!muted) musicGain.gain.setTargetAtTime(rushing ? 0.62 : 0.3, AC.currentTime, 0.15);
+  // Le rush est plus dense et plus grave, pas plus aigu : basse à chaque temps, une
+  // sous-octave chaude qui porte, et le filtre s'ouvre à peine. Rien de strident.
+  if (!muted) musicGain.gain.setTargetAtTime(rushing ? 0.44 : 0.3, AC.currentTime, 0.2);
+  if (musicFilter) musicFilter.frequency.setTargetAtTime(rushing ? 2900 : 2200, AC.currentTime, 0.25);
   while (musicNext < AC.currentTime + 0.35) {
     const step = musicStep % 32, ch = CHORDS[Math.floor(step / 8) % 4], t = musicNext;
-    if (step % (rushing ? 4 : 8) === 0) mNote(ch.bass, t, rushing ? 0.2 : 0.34, 'square', rushing ? 0.15 : 0.1);
-    if (step % 8 === 5) mNote(ch.bass * 1.5, t, 0.16, 'square', rushing ? 0.1 : 0.06);
-    mNote(ch.arp[step % 4] * (rushing ? 2 : 1), t, rushing ? 0.08 : 0.1,
-          rushing ? 'sawtooth' : 'triangle', rushing ? 0.06 : 0.038);
-    if (rushing) mNote(ch.arp[(step + 2) % 4] * 4, t, 0.05, 'square', 0.025); // contrechant aigu
-    if (step % (rushing ? 2 : 4) === 2) mHat(t, rushing ? 0.075 : 0.05);
-    musicNext += rushing ? STEP * 0.75 : STEP;
+    if (step % (rushing ? 4 : 8) === 0) mNote(ch.bass, t, rushing ? 0.22 : 0.34, 'triangle', rushing ? 0.13 : 0.1);
+    if (step % 8 === 5) mNote(ch.bass * 1.5, t, 0.16, 'triangle', rushing ? 0.08 : 0.06);
+    // l'arpège reste dans son registre : c'est le grave qui s'étoffe, pas l'aigu
+    mNote(ch.arp[step % 4], t, rushing ? 0.09 : 0.1, 'triangle', rushing ? 0.05 : 0.038);
+    if (rushing && step % 2 === 0) mNote(ch.bass / 2, t, 0.18, 'sine', 0.09); // sous-octave qui porte
+    if (step % 4 === 2) mHat(t, rushing ? 0.055 : 0.05);
+    musicNext += rushing ? STEP * 0.8 : STEP;
     musicStep++;
   }
 }
+let musicFilter = null;
 function startMusic() {
   if (!AC || musicTimer) return;
   musicGain = AC.createGain();
   musicGain.gain.value = muted ? 0 : 0.3;   // volontairement discrète, sous les effets
-  musicGain.connect(AC.destination);
+  // passe-bas : arrondit les carrés et empêche tout timbre criard, y compris en rush
+  musicFilter = AC.createBiquadFilter();
+  musicFilter.type = 'lowpass'; musicFilter.frequency.value = 2200; musicFilter.Q.value = 0.6;
+  musicGain.connect(musicFilter).connect(AC.destination);
   noiseBuf = AC.createBuffer(1, Math.floor(AC.sampleRate * 0.06), AC.sampleRate);
   const d = noiseBuf.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -1533,7 +1539,7 @@ addEventListener('keydown', e => {
   const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
   if (KEYMAP[k]) e.preventDefault();
   if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (err) {} }
-  if (k === 'm') { muted = !muted; if (musicGain) musicGain.gain.value = muted ? 0 : (worldT < frenzyUntil ? 0.62 : 0.3); return; }
+  if (k === 'm') { muted = !muted; if (musicGain) musicGain.gain.value = muted ? 0 : (worldT < frenzyUntil ? 0.44 : 0.3); return; }
   if (k === 't') { toggleTune(); return; }
   if (k === 'Escape' && !document.getElementById('tune').hidden) { toggleTune(false); return; }
   if (k === 'Escape' && (state === 'play' || state === 'pause')) {
