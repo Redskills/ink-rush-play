@@ -142,8 +142,8 @@ const CFG = {
   approach: 0.80,    // vol max du jeton (s) — au-delà, la bougie attend, touche visible
   perfect: 0.085,    // fenêtre PERFECT (±s)
   good: 0.17,        // fenêtre GOOD (±s)
-  beatStart: 1.15,   // temps entre deux frappes au début (s)
-  beatEnd: 0.95,     // ... et à la fin
+  beatStart: 1.09,   // temps entre deux frappes au début (s)
+  beatEnd: 0.90,     // ... et à la fin
   growDur: 0.23,     // croissance du corps de bougie (s)
   gap: 0.1,          // respiration après résolution (s)
   lives: 3,
@@ -204,14 +204,14 @@ const ERAS = [
   { from: 2008, label: 'GENESIS',        bias: 0.62, vol: 0.80, pace: 1.05 },
   { from: 2010, label: 'EARLY DAYS',     bias: 0.70, vol: 0.90, pace: 1.00 },
   { from: 2013, label: 'FIRST BUBBLE',   bias: 0.82, vol: 1.00, pace: 0.75 },
-  { from: 2014, label: 'THE CRASH',      bias: 0.26, vol: 0.95, pace: 0.85 },
+  { from: 2014, label: 'THE CRASH',      bias: 0.34, vol: 0.95, pace: 0.85 },
   { from: 2016, label: 'RECOVERY',       bias: 0.72, vol: 0.85, pace: 0.90 },
   { from: 2017, label: 'BULL RUN',       bias: 0.86, vol: 1.10, pace: 0.68 },
-  { from: 2018, label: 'CRYPTO WINTER',  bias: 0.24, vol: 0.95, pace: 0.90 },
+  { from: 2018, label: 'CRYPTO WINTER',  bias: 0.32, vol: 0.95, pace: 0.90 },
   { from: 2019, label: 'SIDEWAYS',       bias: 0.58, vol: 0.80, pace: 1.00 },
   { from: 2020, label: 'HALVING III',    bias: 0.78, vol: 0.95, pace: 0.80 },
   { from: 2021, label: 'ALL-TIME HIGH',  bias: 0.86, vol: 1.15, pace: 0.65 },
-  { from: 2022, label: 'THE FALL',       bias: 0.22, vol: 1.05, pace: 0.78 },
+  { from: 2022, label: 'THE FALL',       bias: 0.30, vol: 1.05, pace: 0.78 },
   { from: 2023, label: 'RECOVERY',       bias: 0.74, vol: 0.85, pace: 0.90 },
   { from: 2024, label: 'ETF ERA',        bias: 0.82, vol: 1.00, pace: 0.75 },
   { from: 2025, label: 'NEW HIGHS',      bias: 0.86, vol: 1.15, pace: 0.65 },
@@ -383,6 +383,7 @@ let state = 'start'; // start | play | pause | over | win
 let worldT = 0, hitstop = 0, shake = 0;
 let candles, beat, coin, missCoin, particles, floaters;
 let launchFx = -9, reloadAt = -9, krakenFx = -99, crashFlash = -99;
+let burstLeft = 0, burstGreen = true, burstCooldown = 0, burstFx = -99;
 const KRAKEN_FX_DUR = 0.7; // il monte et redescend aussitôt
 let idx, tick, level, pnl, combo, bestCombo, lives, cam, camTarget, camY, camYSpeed, yearFx, lastEraLabel, lastWasPanic, frenzyUntil, frenzyCooldown, greenStreak, panicN, tempoDrift, eventIdx, eventDur, eventToastUntil, eventCur, airdropLeft, crashLeft, panicCooldown, cascade;
 let best = 0;
@@ -434,6 +435,7 @@ function reset() {
   idx = 0; tick = 0; level = 560; pnl = 0; combo = 0; bestCombo = 0; lives = CFG.lives;
   cam = 0; camTarget = 0; camY = 130; camYSpeed = 3.2; worldT = 0; hitstop = 0; shake = 0;
   launchFx = -9; reloadAt = -9; krakenFx = -99; crashFlash = -99;
+  burstLeft = 0; burstCooldown = 26; burstFx = -99;
   yearFx = { year: 2008, t: 1 };
   lastEraLabel = '';
   lastWasPanic = false;
@@ -458,30 +460,44 @@ let nextSpawnAt = 0, nextHitAt = 0, upcoming = null;
 // la note suivante est décidée à l'avance : on l'affiche en fantôme, on la voit venir
 function rollUpcoming() {
   const year = yearOf(tick), era = eraOf(year), frenzy = worldT < frenzyUntil;
+  // SALVE : une ou deux fois par partie, le calamar tire trois jetons à la suite,
+  // tous dans le même sens, à intervalle fixe. Ça casse le train-train.
+  if (!burstLeft && tick > 14 && worldT >= burstCooldown && !frenzy && Math.random() < 0.05) {
+    burstLeft = 3;
+    burstGreen = Math.random() < clamp(era.bias + 0.15, 0.2, 0.9);
+    burstCooldown = worldT + 55;
+    burstFx = worldT;
+    sfx.frenzy();
+  }
   // rappel doux vers la courbe de fond : sous la tendance, le vert redevient probable
-  const pull = clamp((level - trendAt(tick)) / 700, -0.3, 0.34);
-  const green = Math.random() < clamp((frenzy ? 0.95 : era.bias) + pull, 0.08, 0.97);
+  const pull = clamp((level - trendAt(tick)) / 520, -0.26, 0.42);
+  const green = burstLeft ? burstGreen : Math.random() < clamp((frenzy ? 0.95 : era.bias) + pull, 0.08, 0.97);
   const dualChance = ((year >= CFG.dualFromYear ? clamp(0.08 + (year - CFG.dualFromYear) * 0.03, 0, 0.38) : 0) + (frenzy ? 0.2 : 0)) * L.dual;
   // le sens des flèches suit le sens du marché : vert = on achète (haut/droite),
   // rouge = on vend (bas/gauche). Jamais de flèche à contresens de la bougie.
   const dirs = green ? ['up', 'right'] : ['down', 'left'];
   let keys = [dirs[Math.floor(Math.random() * 2)]];
-  if (Math.random() < dualChance) keys = green ? ['up', 'right'] : ['down', 'left'];
+  if (!burstLeft && Math.random() < dualChance) keys = green ? ['up', 'right'] : ['down', 'left'];
   // Le jeton ₿ est décidé ici : deux fois moins fréquent qu'avant, et il exige une
   // note longue pour laisser au moins 0,8 s de réaction. Sinon il gêne au lieu d'amuser.
   const chance = (year >= 2011 ? Math.min(0.5, 0.15 + (year - 2011) * 0.03) : 0) * 0.5;
-  upcoming = { green, keys, bonus: airdropLeft > 0 || Math.random() < chance };
+  // GROSSE BOUGIE : rare, longue, et elle rapporte bien plus
+  const big = !burstLeft && !frenzy && Math.random() < 0.07;
+  upcoming = { green, keys, big, burst: burstLeft > 0,
+               bonus: !big && (airdropLeft > 0 || Math.random() < chance) };
 }
 // une note portant un ₿ vole plus longtemps : c'est ce qui rend le bonus confortable
-const flightCapFor = b => CFG.approach + (b ? 0.62 : 0);
+const flightCapFor = u => CFG.approach + ((u && (u.bonus || u.big)) ? 0.62 : 0);
 
 // la pulsation : des mesures simples plutôt que du hasard, pour que le rythme se sente
 const PATTERNS = [1, 1, 1, 1, 0.62, 0.62, 1.45];
 const hitInterval = () => clamp(lerp(CFG.beatStart, CFG.beatEnd, tick / CFG.totalTicks) * eraOf(yearOf(tick)).pace * tempoDrift, 0.62 * L.beat, 1.9 * L.beat);
 const nextStep = () => {
+  if (upcoming && upcoming.burst) return 0.95 * L.beat;   // salve : cadence régulière
+  if (upcoming && upcoming.big) return flightCapFor(upcoming) + 0.06; // note ample
   const dual = upcoming && upcoming.keys.length > 1 ? L.dualTime : 1; // deux touches = plus de temps
   // plafond calé sur le vol : au-delà, le jeton attendrait sur la rampe pour rien
-  const maxStep = flightCapFor(upcoming && upcoming.bonus) + 0.06;
+  const maxStep = flightCapFor(upcoming) + 0.06;
   return clamp(hitInterval() * PATTERNS[Math.floor(Math.random() * PATTERNS.length)] * dual * (worldT < frenzyUntil ? 0.62 : 1), Math.max(0.42 * L.beat, L.minLead), maxStep);
 };
 
@@ -526,10 +542,12 @@ function spawnBeat() {
   // joueur a frappé en retard sur la note précédente
   if (!upcoming) rollUpcoming();
   const green = upcoming.green, keys = upcoming.keys, wantBonus = upcoming.bonus;
+  const isBig = upcoming.big, inBurst = upcoming.burst;
   upcoming = null;
+  if (burstLeft) burstLeft--;
   const hitT = Math.max(nextHitAt, worldT + L.minLead);
   // le jeton part immédiatement : la bougie pousse pendant son vol, rien avant
-  const flight = clamp(hitT - worldT - 0.02, 0.34, flightCapFor(wantBonus));
+  const flight = clamp(hitT - worldT - 0.02, 0.34, flightCapFor({ bonus: wantBonus, big: isBig }));
   const tThrow = hitT - flight;
   const amp = clamp((flight - 0.34) / 1.05, 0, 1); // note tenue = grande bougie
   // un plancher de volatilité : aucune bougie ne doit être quasi plate
@@ -537,7 +555,8 @@ function spawnBeat() {
   let body = lerp(56, 132, amp) * vol * (frenzy ? 1.25 : 1) + 30;
   let wick = lerp(26, 60, amp) * vol + 14;
   // les hausses portent plus loin que les baisses, comme le cours réel
-  if (green) { body *= 1.16; wick *= 1.1; }
+  if (green) { body *= 1.3; wick *= 1.15; } else { body *= 0.92; }
+  if (isBig) { body *= 1.55; wick *= 1.4; } // une grosse bougie se voit de loin
   // garde-fou très large, et qui ne peut plus écraser une bougie : la caméra suit
   // plus de garde-fou de hauteur : la caméra suit le cours où qu'il aille, et c'est le
   // rappel vers la tendance (rollUpcoming) qui empêche la courbe de partir pour de bon.
@@ -546,7 +565,7 @@ function spawnBeat() {
     top: green ? level - body : level, bot: green ? level : level + body,
     // elle pousse pendant toute l'attente avant le lancer : rien ne se fige à l'écran
     grow: 0, growDur: Math.max(CFG.growDur, flight * 0.85), wickProg: 0,
-    done: false, missed: false,
+    done: false, missed: false, big: isBig,
   };
   c.extremeY = green ? c.top - wick : c.bot + wick;
   level = green ? c.top : c.bot;
@@ -593,19 +612,22 @@ function resolve(result, label, color) {
     if (lives <= 0) return gameEnd(false);
   } else {
     const base = Math.round(c.body + c.wick);
-    const gain = Math.round(base * (result === 'perfect' ? 2.2 : 1) * (1 + combo * 0.08) * 10) * (beat.frenzy ? 3 : 1);
+    const gain = Math.round(base * (result === 'perfect' ? 2.2 : 1) * (1 + combo * 0.08) * 10
+                 * (beat.frenzy ? 3 : 1) * (c.big ? 2.4 : 1)); // la grosse bougie paie bien plus
     pnl += gain; combo++; bestCombo = Math.max(bestCombo, combo);
     c.done = true; coin = null;
     if (result === 'perfect') { shake = 6 * CFG.shake; hitstop = 0.07; sfx.perfect(); } else sfx.good();
     const p = targetPos(c);
     burst(p.x, p.y, result === 'perfect' ? 16 : 9, c.green ? PAL.green : PAL.red);
-    addFloater(label + '  ' + fmt$(gain), p.x, p.y - 50, result === 'perfect' ? PAL.purpleHi : PAL.text, result === 'perfect' ? 24 : 19);
+    addFloater((c.big ? 'BIG ' : '') + label + '  ' + fmt$(gain), p.x, p.y - 50,
+               c.big ? PAL.gold : result === 'perfect' ? PAL.purpleHi : PAL.text,
+               c.big ? 27 : result === 'perfect' ? 24 : 19);
   }
   if (tick >= CFG.totalTicks) return gameEnd(true);
   // cadence : l'époque donne le tempo (bull run rapide, marché calme plus lent)
   nextHitAt = beat.hitT + nextStep();
   // la bougie naît pile au moment du lancer : rien n'apparaît en avance, tout est fluide
-  const plannedFlight = clamp(nextHitAt - beat.hitT - 0.02, 0.34, flightCapFor(upcoming && upcoming.bonus));
+  const plannedFlight = clamp(nextHitAt - beat.hitT - 0.02, 0.34, flightCapFor(upcoming));
   nextSpawnAt = Math.max(worldT + 0.02, nextHitAt - plannedFlight);
 }
 
@@ -633,7 +655,7 @@ function extendLastCandle(up) { // prolonge la dernière bougie : le mouvement c
 }
 
 function dropRedCandle() { // chaque avancée du panic fait tomber une vraie bougie rouge
-  if (cascade >= 8) return extendLastCandle(false);
+  if (cascade >= 6) return extendLastCandle(false);
   cascade++;
   const h = rand(45, 90), w = rand(12, 28);
   const bot = level + h; // sans plafond
@@ -1123,7 +1145,8 @@ function render() {
     ctx.stroke();
     ctx.fillStyle = col;
     rr(x - BODY_W / 2, by, BODY_W, Math.max(4, bh), 3); ctx.fill();
-    if (isActive) { ctx.strokeStyle = c.green ? PAL.greenHi : '#FFB3BA'; ctx.lineWidth = 1.5; rr(x - BODY_W / 2, by, BODY_W, Math.max(4, bh), 3); ctx.stroke(); }
+    if (c.big) { ctx.strokeStyle = PAL.gold; ctx.lineWidth = 2.5; rr(x - BODY_W / 2 - 2, by - 2, BODY_W + 4, Math.max(4, bh) + 4, 4); ctx.stroke(); }
+    else if (isActive) { ctx.strokeStyle = c.green ? PAL.greenHi : '#FFB3BA'; ctx.lineWidth = 1.5; rr(x - BODY_W / 2, by, BODY_W, Math.max(4, bh), 3); ctx.stroke(); }
     ctx.globalAlpha = 1;
     if (c.done && !c.panic) { ctx.globalAlpha = 0.5; drawCoin(x, sy(c.extremeY), 16, 0); ctx.globalAlpha = 1; }
   }
@@ -1189,6 +1212,22 @@ function render() {
     keycap(pos.x, pos.y - 34, b.key, activeB, 19, PAL.gold); // au ras du jeton : on voit quoi presser
     if (activeB) { ctx.strokeStyle = PAL.gold; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(pos.x, pos.y, 24, 0, 7); ctx.stroke(); }
     ctx.globalAlpha = 1;
+  }
+  // Salve : trois tirs annoncés, on voit combien il en reste
+  if (burstLeft > 0 || worldT - burstFx < 1.1) {
+    const a = clamp(1 - (worldT - burstFx) / 1.1, 0, 1);
+    ctx.textAlign = 'center';
+    if (a > 0) {
+      ctx.globalAlpha = a;
+      ctx.fillStyle = burstGreen ? PAL.green : PAL.red;
+      ctx.font = '700 34px "Space Grotesk"';
+      ctx.fillText('TRIPLE SHOT', 720, 300);
+      ctx.globalAlpha = 1;
+    }
+    for (let i = 0; i < 3; i++) {
+      ctx.fillStyle = i < burstLeft ? (burstGreen ? PAL.green : PAL.red) : '#2A3145';
+      ctx.beginPath(); ctx.arc(LAUNCH.x - 22 + i * 22, LAUNCH.y - 118, 6, 0, 7); ctx.fill();
+    }
   }
   // Krach éclair : l'écran vire au rouge une demi-seconde
   const cf = worldT - crashFlash;
