@@ -612,6 +612,7 @@ function spawnPump() {
 function pumpPress(dir) {
   if (dir !== 'up' || worldT < beat.tStart || worldT > beat.tEnd) return;
   beat.count++;
+  beat.lastPressAt = worldT;
   pnl += Math.round((40 + beat.count * 14) * (1 + combo * 0.05)); // chaque appui vaut plus que le précédent
   shake = Math.max(shake, 2.5 * CFG.shake);
   beep(Math.min(1100, 320 + beat.count * 34), 0.05, 'triangle', 0.16);
@@ -664,6 +665,7 @@ function panicPress(dir) {
   if (beat.mode === 'mash') {
     if (dir !== 'down') return;
     beat.count++;
+    beat.lastPressAt = worldT;
     pnl += Math.round(60 * (1 + combo * 0.05));
     shake = Math.max(shake, 3 * CFG.shake);
     beep(Math.max(180, 520 - beat.count * 18), 0.05, 'square', 0.15);
@@ -871,6 +873,29 @@ function drawCoin(x, y, r, rot) {
   }
   ctx.restore();
 }
+// Bouton « à marteler » : il se presse tout seul en cadence (le geste attendu se lit
+// sans texte), émet des ondes répétées, et s'écrase à chaque appui réel du joueur.
+function mashKeycap(x, y, dir, armed, color, lastPressAt) {
+  if (!armed) { keycap(x, y, dir, false, 34, color); return; }
+  for (const ph of [0, 0.5]) { // deux ondes en quinconce = « encore, encore »
+    const rp = (worldT * 1.7 + ph) % 1;
+    ctx.globalAlpha = (1 - rp) * 0.32;
+    ctx.strokeStyle = color; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x, y, 44 + rp * 36, 0, 7); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  const cycle = (worldT * 6.5) % 1;                    // auto-pression ~6,5 Hz
+  const auto = cycle < 0.3 ? Math.sin(cycle / 0.3 * Math.PI) : 0;
+  const pressed = worldT - (lastPressAt || -9) < 0.09 ? 1 : 0;
+  const k = 1 - 0.13 * Math.max(auto * 0.7, pressed);
+  ctx.save();
+  ctx.translate(x, y + (1 - k) * 26);                  // il s'enfonce, comme une vraie touche
+  ctx.scale(1 + (1 - k) * 0.5, k);
+  ctx.translate(-x, -y);
+  keycap(x, y, dir, true, 34, color);
+  ctx.restore();
+}
+
 function keycap(x, y, dir, active, s, color) {
   s = s || 26; color = color || PAL.purpleHi;
   ctx.fillStyle = PAL.purpleDeep;
@@ -1080,7 +1105,7 @@ function render() {
     ctx.font = '500 13px "IBM Plex Mono"';
     ctx.fillText(armed ? 'TAP ↑ FAST — EVERY HIT PAYS MORE' : 'GET READY…', 720, 264);
     ctx.globalAlpha = 1;
-    keycap(720, 352, 'up', armed, 34, PAL.green);
+    mashKeycap(720, 352, 'up', armed, PAL.green, beat.lastPressAt);
     if (armed && beat.count > 0) {
       ctx.fillStyle = PAL.green; ctx.font = '700 26px "Space Grotesk"';
       ctx.fillText('×' + beat.count, 720, 434);
@@ -1105,7 +1130,7 @@ function render() {
     ctx.fillText(armed ? (beat.mode === 'mash' ? 'MASH ↓ TO SELL EVERYTHING' : 'RUN THE SEQUENCE, IN ORDER!') : 'GET READY…', 720, 264);
     ctx.globalAlpha = 1;
     if (beat.mode === 'mash') {
-      keycap(720, 352, 'down', armed, 34, PAL.red);
+      mashKeycap(720, 352, 'down', armed, PAL.red, beat.lastPressAt);
       if (armed && beat.count > 0) {
         ctx.fillStyle = PAL.red; ctx.font = '700 26px "Space Grotesk"';
         ctx.fillText('×' + beat.count, 720, 434);
