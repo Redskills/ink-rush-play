@@ -220,7 +220,7 @@ const CHART_TOP = 130, CHART_BOT = 700, ACTIVE_X = 920, SPACING = 88, BODY_W = 3
 const LAUNCH_W = 96, LAUNCH_H = LAUNCH_W * 444 / 188;
 const LAUNCH_HEAD_H = LAUNCH_W * 148 / 188;
 const LAUNCH_BOTTOM = 872; // 72 px passent sous le bandeau (dessiné par-dessus)
-const LAUNCH = { x: 120, y: LAUNCH_BOTTOM - (LAUNCH_H - LAUNCH_HEAD_H) - LAUNCH_HEAD_H / 2 };
+const LAUNCH = { x: 76, y: LAUNCH_BOTTOM - (LAUNCH_H - LAUNCH_HEAD_H) - LAUNCH_HEAD_H / 2 };
 
 const cv = document.getElementById('game');
 const ctx = cv.getContext('2d');
@@ -812,8 +812,6 @@ function render() {
     if (ys < 90 || ys > 782) continue;
     ctx.strokeStyle = PAL.grid; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(0, ys); ctx.lineTo(W, ys); ctx.stroke();
-    const pr = priceAt(wy);
-    if (pr > 0) { ctx.fillStyle = PAL.faint; ctx.fillText(fmtPrice(pr), 1424, ys - 6); }
   }
   ctx.textAlign = 'left';
 
@@ -967,19 +965,6 @@ function render() {
   }
   if (missCoin) { ctx.globalAlpha = 0.7; drawCoin(missCoin.x, missCoin.y, 24, missCoin.x * 0.02); ctx.globalAlpha = 1; }
 
-  drawLauncher();
-  // la note suivante s'annonce ici, toujours au même endroit : on la voit venir de loin
-  if (state === 'play' && upcoming && beat && !beat.resolved && beat.c) {
-    ctx.globalAlpha = 0.42;
-    ctx.font = '500 9px "IBM Plex Mono"'; ctx.textAlign = 'center';
-    ctx.fillStyle = PAL.muted; ctx.fillText('SUIVANT', LAUNCH.x, LAUNCH.y - 92);
-    ctx.fillStyle = upcoming.green ? PAL.green : PAL.red;
-    ctx.beginPath(); ctx.arc(LAUNCH.x - 46, LAUNCH.y - 95, 3.5, 0, 7); ctx.fill();
-    const n = upcoming.keys.length, x0 = LAUNCH.x - (n - 1) * 21;
-    upcoming.keys.forEach((k, i) => keycap(x0 + i * 42, LAUNCH.y - 64, k, false, 17));
-    ctx.globalAlpha = 1;
-  }
-
   // particules
   for (const p of particles) { ctx.globalAlpha = p.a; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill(); }
   ctx.globalAlpha = 1;
@@ -992,6 +977,38 @@ function render() {
   }
   ctx.globalAlpha = 1;
   ctx.restore(); // fin secousse
+
+  // Encapsulation : deux dégradés horizontaux ferment l'aire de jeu. Les bougies s'y
+  // fondent au lieu d'être coupées net au bord, et elles ne touchent jamais le logo.
+  const scrimL = ctx.createLinearGradient(0, 0, 236, 0);
+  scrimL.addColorStop(0, PAL.bg); scrimL.addColorStop(0.55, PAL.bg); scrimL.addColorStop(1, PAL.bg + '00');
+  ctx.fillStyle = scrimL; ctx.fillRect(0, 79, 236, 720);
+  const scrimR = ctx.createLinearGradient(W, 0, W - 190, 0);
+  scrimR.addColorStop(0, PAL.bg); scrimR.addColorStop(0.35, PAL.bg); scrimR.addColorStop(1, PAL.bg + '00');
+  ctx.fillStyle = scrimR; ctx.fillRect(W - 190, 79, 190, 720);
+
+  // les paliers de prix se lisent par-dessus le dégradé de droite
+  ctx.font = '500 9px "IBM Plex Mono"'; ctx.textAlign = 'right'; ctx.fillStyle = PAL.faint;
+  for (let wy = Math.floor((camY + 100) / 100) * 100; wy < camY + 730; wy += 100) {
+    const ys = sy(wy), pr = priceAt(wy);
+    if (ys < 90 || ys > 782 || pr <= 0) continue;
+    ctx.fillText(fmtPrice(pr), 1424, ys - 6);
+  }
+  ctx.textAlign = 'left';
+
+  // le launcher est posé par-dessus le dégradé : rien ne vient jamais le percuter
+  drawLauncher();
+  // la note suivante s'annonce ici, toujours au même endroit : on la voit venir de loin
+  if (state === 'play' && upcoming && beat && !beat.resolved && beat.c) {
+    ctx.globalAlpha = 0.42;
+    ctx.font = '500 9px "IBM Plex Mono"'; ctx.textAlign = 'center';
+    ctx.fillStyle = PAL.muted; ctx.fillText('SUIVANT', LAUNCH.x, LAUNCH.y - 92);
+    ctx.fillStyle = upcoming.green ? PAL.green : PAL.red;
+    ctx.beginPath(); ctx.arc(LAUNCH.x - 46, LAUNCH.y - 95, 3.5, 0, 7); ctx.fill();
+    const n = upcoming.keys.length, x0 = LAUNCH.x - (n - 1) * 21;
+    upcoming.keys.forEach((k, i) => keycap(x0 + i * 42, LAUNCH.y - 64, k, false, 17));
+    ctx.globalAlpha = 1;
+  }
 
   // Actu crypto : carte en bas à droite, le jeu n'est jamais interrompu
   if (eventCur && worldT < eventToastUntil) {
