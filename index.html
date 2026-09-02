@@ -844,7 +844,7 @@ function bezPoint(c, p) { // trajectoire du lancer (bézier quadratique)
 const candleX = c => CHART_X0 + c.slot * SPACING - cam;
 // caméra verticale : quand le cours monte, la vue monte avec lui
 const sy = y => y - camY;
-const priceAt = y => Math.max(0, Math.round((700 - y) * 75));
+const priceAt = y => Math.max(150, Math.round((790 - y) * 75)); // jamais $0 à l'écran
 const fmtPrice = v => v >= 1000 ? '$' + Math.round(v / 1000) + 'K' : '$' + v;
 
 // pictos d'actus, en trait monochrome
