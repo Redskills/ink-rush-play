@@ -214,7 +214,13 @@ powellImg.src = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD/4QCGRXhpZgAA
 // ---- Monde virtuel 1440x900, mis à l'échelle de la fenêtre ----
 const W = 1440, H = 900;
 const CHART_TOP = 130, CHART_BOT = 700, ACTIVE_X = 920, SPACING = 88, BODY_W = 34;
-const LAUNCH = { x: 132, y: 688 }; // centre du dôme = point d'éjection du jeton
+// Launcher : le dôme fait 2× le jeton (96 px). Les tentacules descendent au-delà de
+// la ligne du bas et passent derrière le bandeau de la frise : le logo est posé sur
+// la ligne au lieu de s'évanouir en plein vide.
+const LAUNCH_W = 96, LAUNCH_H = LAUNCH_W * 444 / 188;
+const LAUNCH_HEAD_H = LAUNCH_W * 148 / 188;
+const LAUNCH_BOTTOM = 872; // 72 px passent sous le bandeau (dessiné par-dessus)
+const LAUNCH = { x: 120, y: LAUNCH_BOTTOM - (LAUNCH_H - LAUNCH_HEAD_H) - LAUNCH_HEAD_H / 2 };
 
 const cv = document.getElementById('game');
 const ctx = cv.getContext('2d');
@@ -742,9 +748,7 @@ function keycap(x, y, dir, active, s, color) {
 function drawLauncher() {
   if (!krakenImg.complete || !krakenImg.naturalWidth) return;
   const iw = krakenImg.naturalWidth, ih = krakenImg.naturalHeight;
-  const COIN_R = 24;                       // le dôme fait exactement la taille du jeton
-  const w0 = COIN_R * 2, k = w0 / iw;
-  const headH = KRAKEN_HEAD_PX * k, trailH = (ih - KRAKEN_HEAD_PX) * k;
+  const w0 = LAUNCH_W, headH = LAUNCH_HEAD_H, trailH = LAUNCH_H - LAUNCH_HEAD_H;
 
   const t = worldT - launchFx;
   let sx = 1, hy = 1, ty = 1, flash = 0;
@@ -775,15 +779,7 @@ function drawLauncher() {
   // tentacules d'abord (même facteur horizontal que la tête : aucun raccord visible)
   ctx.drawImage(krakenImg, 0, KRAKEN_HEAD_PX, iw, ih - KRAKEN_HEAD_PX, x, headBottom - 1, w, th);
   ctx.drawImage(krakenImg, 0, 0, iw, KRAKEN_HEAD_PX, x, headTop, w, hh);
-
-  // le jeton suivant se recharge dans le dôme
-  const rl = clamp((worldT - reloadAt) / 0.22, 0, 1);
-  if (rl > 0) {
-    const pop = easeOutBack(rl);
-    ctx.save(); ctx.globalAlpha = Math.min(1, rl * 1.6);
-    drawCoin(LAUNCH.x, headTop + hh / 2, COIN_R * pop, 0);
-    ctx.restore();
-  }
+  // aucun jeton posé sur le logo : il sort de derrière (il est dessiné avant le launcher)
 }
 
 function render() {
@@ -797,10 +793,11 @@ function render() {
 
   // millésime géant (la piste C, en nocturne)
   ctx.save();
-  ctx.globalAlpha = 0.05 * easeOutCubic(yearFx.t);
+  ctx.globalAlpha = 0.1 * easeOutCubic(yearFx.t);
   ctx.fillStyle = PAL.text; ctx.font = '700 330px "Space Grotesk"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(String(yearFx.year), 980, 430 + (1 - easeOutCubic(yearFx.t)) * 30);
+  // centré pile au milieu de l'aire de jeu (entre le bandeau du haut et la frise)
+  ctx.fillText(String(yearFx.year), W / 2, (78 + 800) / 2 + (1 - easeOutCubic(yearFx.t)) * 30);
   ctx.restore();
 
   // secousse : seulement le monde (pas le HUD)
@@ -975,11 +972,11 @@ function render() {
   if (state === 'play' && upcoming && beat && !beat.resolved && beat.c) {
     ctx.globalAlpha = 0.42;
     ctx.font = '500 9px "IBM Plex Mono"'; ctx.textAlign = 'center';
-    ctx.fillStyle = PAL.muted; ctx.fillText('SUIVANT', LAUNCH.x, LAUNCH.y - 96);
+    ctx.fillStyle = PAL.muted; ctx.fillText('SUIVANT', LAUNCH.x, LAUNCH.y - 92);
     ctx.fillStyle = upcoming.green ? PAL.green : PAL.red;
-    ctx.beginPath(); ctx.arc(LAUNCH.x - 44, LAUNCH.y - 99, 3.5, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(LAUNCH.x - 46, LAUNCH.y - 95, 3.5, 0, 7); ctx.fill();
     const n = upcoming.keys.length, x0 = LAUNCH.x - (n - 1) * 21;
-    upcoming.keys.forEach((k, i) => keycap(x0 + i * 42, LAUNCH.y - 62, k, false, 17));
+    upcoming.keys.forEach((k, i) => keycap(x0 + i * 42, LAUNCH.y - 64, k, false, 17));
     ctx.globalAlpha = 1;
   }
 
