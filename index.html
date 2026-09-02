@@ -1,0 +1,1024 @@
+<title>Ink Rush v0</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  /* Parti pris : monde néon nocturne unique (pas de thème clair), tout est peint explicitement. */
+  html, body { height: 100%; }
+  body { margin: 0; background: #06080F; overflow: hidden; font-family: 'Space Grotesk', 'Helvetica Neue', Arial, sans-serif; }
+  canvas { display: block; }
+  [hidden] { display: none !important; }
+  .overlay {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: #06080FD9; color: #E8EAF2; text-align: center; z-index: 10;
+  }
+  .overlay .card { max-width: 560px; padding: 40px; }
+  .overlay h1 { font-size: 44px; letter-spacing: 2px; margin: 0 0 6px 0; }
+  .overlay h1 .ink { color: #A895FF; }
+  .overlay .sub { font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; letter-spacing: 3px; color: #6B7390; margin-bottom: 28px; }
+  .overlay p { font-size: 15px; line-height: 1.6; color: #C9CDDC; margin: 10px 0; }
+  .overlay .keys { display: flex; gap: 10px; justify-content: center; margin: 22px 0; }
+  .overlay .key {
+    width: 46px; height: 46px; border: 2px solid #7C5CFF; border-radius: 10px; background: #161230;
+    display: flex; align-items: center; justify-content: center; font-size: 20px; color: #A895FF;
+  }
+  .overlay .go { font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; letter-spacing: 2px; color: #00D68F; margin-top: 26px; }
+  .overlay .small { font-size: 12px; color: #6B7390; }
+  .overlay .stat { font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 15px; margin: 4px 0; }
+  .overlay .stat b { color: #00D68F; font-weight: 600; }
+  #tune {
+    position: fixed; top: 90px; right: 16px; z-index: 20; width: 250px;
+    background: #0C1019F2; border: 1px solid #2A2350; border-radius: 12px; padding: 16px;
+    color: #C9CDDC; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px;
+  }
+  #tune h2 { font-size: 11px; letter-spacing: 2px; color: #A895FF; margin: 0 0 12px 0; }
+  #tune label { display: block; margin: 10px 0 2px 0; letter-spacing: 1px; color: #6B7390; }
+  #tune input[type=range] { width: 100%; accent-color: #7C5CFF; }
+  #tune .val { color: #E8EAF2; float: right; }
+  :focus-visible { outline: 2px solid #A895FF; outline-offset: 2px; }
+</style>
+
+<canvas id="game" aria-label="Ink Rush — jeu de timing au clavier"></canvas>
+
+<div class="overlay" id="startOverlay">
+  <div class="card">
+    <h1><span class="ink">INK</span> RUSH</h1>
+    <div class="sub">BTC/USD &middot; 2008&#8594;2026</div>
+    <p>Le jeton <b>INK</b> est lanc&eacute; sur chaque bougie.<br>
+    Appuie sur la fl&egrave;che indiqu&eacute;e <b>pile</b> quand il touche l&rsquo;extr&eacute;mit&eacute; de la m&egrave;che.</p>
+    <div class="keys"><span class="key">&#8592;</span><span class="key">&#8593;</span><span class="key">&#8595;</span><span class="key">&#8594;</span></div>
+    <p class="small" style="color: #FFC93C;">Jeton &#8383; crois&eacute; en vol&nbsp;: appuie sur sa touche au passage &rarr; bonus.</p>
+    <p class="small" style="color: #FF4D5E;">Et quand &ccedil;a hurle PANIC SELL&nbsp;: encha&icirc;ne la s&eacute;quence de fl&egrave;ches dans l&rsquo;ordre.</p>
+    <p class="small">Fl&egrave;ches ou ZQSD &middot; parfois deux touches en m&ecirc;me temps &middot; 3 vies<br>Esc pause &middot; M son &middot; T r&eacute;glages &middot; clavier requis</p>
+    <div class="go">CLIQUE OU APPUIE SUR UNE TOUCHE POUR COMMENCER</div>
+  </div>
+</div>
+
+<div class="overlay" id="endOverlay" hidden>
+  <div class="card">
+    <h1 id="endTitle">REKT</h1>
+    <div class="sub" id="endSub"></div>
+    <div class="stat">P&amp;L final&nbsp;: <b id="endPnl"></b></div>
+    <div class="stat">Meilleur combo&nbsp;: <b id="endCombo"></b></div>
+    <div class="stat">Record&nbsp;: <b id="endBest"></b></div>
+    <div class="go">R OU CLIC &mdash; RECOMMENCER</div>
+  </div>
+</div>
+
+<div class="overlay" id="pauseOverlay" hidden>
+  <div class="card"><h1>PAUSE</h1><div class="go">ESC, ESPACE OU CLIC &mdash; REPRENDRE</div></div>
+</div>
+
+<div id="tune" hidden>
+  <h2>R&Eacute;GLAGES (T)</h2>
+  <label>vol du jeton (s) <span class="val" id="v_approach"></span></label>
+  <input type="range" id="r_approach" min="0.6" max="1.8" step="0.05">
+  <label>fen&ecirc;tre perfect (ms) <span class="val" id="v_perfect"></span></label>
+  <input type="range" id="r_perfect" min="50" max="160" step="5">
+  <label>fen&ecirc;tre good (ms) <span class="val" id="v_good"></span></label>
+  <input type="range" id="r_good" min="120" max="320" step="10">
+  <label>cadence d&eacute;but (s) <span class="val" id="v_beatStart"></span></label>
+  <input type="range" id="r_beatStart" min="1.4" max="3" step="0.1">
+  <label>cadence fin (s) <span class="val" id="v_beatEnd"></span></label>
+  <input type="range" id="r_beatEnd" min="0.8" max="2" step="0.05">
+  <label>screenshake <span class="val" id="v_shake"></span></label>
+  <input type="range" id="r_shake" min="0" max="2" step="0.1">
+</div>
+
+<script>
+'use strict';
+/* ============================================================
+   INK RUSH v0 — prototype du gameplay de base.
+   Tout le réglage vit dans CFG (et dans le panneau T en jeu).
+   ============================================================ */
+const CFG = {
+  approach: 0.95,     // durée max du vol du jeton (s) — les petites bougies vont bien plus vite
+  perfect: 0.09,     // fenêtre PERFECT (±s)
+  good: 0.20,        // fenêtre GOOD (±s)
+  beatStart: 1.05,   // temps entre bougies au début (s)
+  beatEnd: 0.53,     // ... et à la fin
+  growDur: 0.23,     // croissance du corps de bougie (s)
+  gap: 0.1,          // respiration après résolution (s)
+  lives: 3,
+  totalCandles: 65,  // 18 ans × 3.6 bougies/an (+20 %)
+  frenzyDur: 7,      // durée du FOMO RUSH (s)
+  dualFromYear: 2013,
+  shake: 1,
+  volume: 0.5,
+  bonusWindow: 0.18, // fenêtre du jeton bonus croisé (±s)
+  panicPerKey: 0.55, // temps accordé par flèche de la séquence PANIC SELL (s)
+  panicDur: 2.6,     // durée du 1er PANIC SELL, en martèlement (s)
+  panicTarget: 12,   // appuis pour le bonus du martèlement
+  pumpDur: 2.2,      // durée du PUMP haussier (s)
+  pumpTarget: 12,    // appuis pour le bonus du pump
+};
+
+const PAL = {
+  bg: '#0A0D16', panel: '#0C1019', grid: '#171D2E', line: '#2A3145',
+  text: '#E8EAF2', muted: '#6B7390', faint: '#4A5169',
+  green: '#00D68F', greenHi: '#7DFFCF', red: '#FF4D5E',
+  purple: '#7C5CFF', purpleHi: '#A895FF', purpleDeep: '#161230', gold: '#FFC93C',
+};
+
+// pace : multiplicateur de tempo de l'époque (0.7 = frénétique, 1.2 = calme)
+const ERAS = [
+  { from: 2008, label: 'GENESIS',        bias: 0.55, vol: 0.45, pace: 1.05 },
+  { from: 2010, label: 'EARLY DAYS',     bias: 0.60, vol: 0.55, pace: 1.00 },
+  { from: 2013, label: 'FIRST BUBBLE',   bias: 0.72, vol: 0.85, pace: 0.75 },
+  { from: 2014, label: 'THE CRASH',      bias: 0.30, vol: 0.80, pace: 0.85 },
+  { from: 2016, label: 'RECOVERY',       bias: 0.62, vol: 0.65, pace: 0.90 },
+  { from: 2017, label: 'BULL RUN',       bias: 0.78, vol: 1.00, pace: 0.68 },
+  { from: 2018, label: 'CRYPTO WINTER',  bias: 0.28, vol: 0.85, pace: 0.90 },
+  { from: 2019, label: 'SIDEWAYS',       bias: 0.52, vol: 0.60, pace: 1.00 },
+  { from: 2020, label: 'HALVING III',    bias: 0.68, vol: 0.85, pace: 0.80 },
+  { from: 2021, label: 'ALL-TIME HIGH',  bias: 0.78, vol: 1.10, pace: 0.65 },
+  { from: 2022, label: 'THE FALL',       bias: 0.25, vol: 1.00, pace: 0.78 },
+  { from: 2023, label: 'RECOVERY',       bias: 0.62, vol: 0.75, pace: 0.90 },
+  { from: 2024, label: 'ETF ERA',        bias: 0.70, vol: 0.90, pace: 0.75 },
+  { from: 2025, label: 'NEW HIGHS',      bias: 0.72, vol: 1.05, pace: 0.65 },
+  { from: 2026, label: 'FINAL SPRINT',   bias: 0.60, vol: 1.15, pace: 0.60 },
+];
+const MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+
+// Jerome Powell, février 2018 (image embarquée, passée en noir et blanc au rendu)
+const powellImg = new Image();
+// Les actus qui ont marqué le bitcoin : flash visuel, puis effet sur le marché
+const EVENTS = [
+  { at: 2010.38, title: 'MAY 2010 — 10,000 BTC FOR TWO PIZZAS',                    icon: 'pizza',  effect: 'airdrop' },
+  { at: 2015.55, title: 'JULY 2015 — ETHEREUM LAUNCHES',                           icon: 'eth',    effect: 'fomo' },
+  { at: 2018.05, title: 'FEBRUARY 2018 — JEROME POWELL BECOMES GOVERNOR OF THE FED', img: 'powell', effect: 'panic' },
+  { at: 2020.19, title: 'MARCH 2020 — COVID CRASH',                                icon: 'virus',  effect: 'panic' },
+  { at: 2021.10, title: 'FEBRUARY 2021 — TESLA BUYS $1.5B IN BITCOIN',             icon: 'rocket', effect: 'fomo' },
+  { at: 2022.85, title: 'NOVEMBER 2022 — FTX COLLAPSES',                           icon: 'crack',  effect: 'crash' },
+];
+powellImg.src = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD/4QCGRXhpZgAATU0AKgAAAAgAAwEOAAIAAAAOAAAAMgEyAAIAAAAUAAAAQIdpAAQAAAABAAAAVAAAAABqZXJvbWUgcG93ZWxsADIwMjQ6MDg6MDUgMTU6MzI6MDEAAAOgAQADAAAAAQABAACgAgAEAAAAAQAAAjCgAwAEAAAAAQAAATsAAAAA/+ELp2h0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8APD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iWE1QIENvcmUgNi4wLjAiPiA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPiA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIiB4bWxuczpwaG90b3Nob3A9Imh0dHA6Ly9ucy5hZG9iZS5jb20vcGhvdG9zaG9wLzEuMC8iIHhtbG5zOklwdGM0eG1wRXh0PSJodHRwOi8vaXB0Yy5vcmcvc3RkL0lwdGM0eG1wRXh0LzIwMDgtMDItMjkvIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtbG5zOmRjPSJodHRwOi8vcHVybC5vcmcvZGMvZWxlbWVudHMvMS4xLyIgcGhvdG9zaG9wOkhlYWRsaW5lPSJqZXJvbWUgcG93ZWxsIiBwaG90b3Nob3A6Q2FwdGlvbldyaXRlcj0iaW9PIiBJcHRjNHhtcEV4dDpIZWFkbGluZT0iamVyb21lIHBvd2VsbCIgeG1wOk1vZGlmeURhdGU9IjIwMjQtMDgtMDVUMTU6MzI6MDEiPiA8ZGM6c3ViamVjdD4gPHJkZjpCYWc+IDxyZGY6bGk+RW4gVnVlPC9yZGY6bGk+IDxyZGY6bGk+TGVzIEVjaG9zPC9yZGY6bGk+IDxyZGY6bGk+Y2FyaWNhdHVyZTwvcmRmOmxpPiA8cmRmOmxpPmlvTzwvcmRmOmxpPiA8cmRmOmxpPmplcm9tZSBwb3dlbGw8L3JkZjpsaT4gPC9yZGY6QmFnPiA8L2RjOnN1YmplY3Q+IDxkYzpkZXNjcmlwdGlvbj4gPHJkZjpBbHQ+IDxyZGY6bGkgeG1sOmxhbmc9IngtZGVmYXVsdCI+amVyb21lIHBvd2VsbDwvcmRmOmxpPiA8L3JkZjpBbHQ+IDwvZGM6ZGVzY3JpcHRpb24+IDwvcmRmOkRlc2NyaXB0aW9uPiA8L3JkZjpSREY+IDwveDp4bXBtZXRhPiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDw/eHBhY2tldCBlbmQ9InciPz4A/+0AtlBob3Rvc2hvcCAzLjAAOEJJTQQEAAAAAAB9HAFaAAMbJUccAgAAAgACHAIZAAZFbiBWdWUcAhkACUxlcyBFY2hvcxwCGQAKY2FyaWNhdHVyZRwCGQADaW9PHAIZAA1qZXJvbWUgcG93ZWxsHAJpAA1qZXJvbWUgcG93ZWxsHAJ6AANpb08cAngADWplcm9tZSBwb3dlbGwAOEJJTQQlAAAAAAAQileBz1lnK4djcCHVxhevpf/CABEIATsCMAMBIgACEQEDEQH/xAAfAAABBQEBAQEBAQAAAAAAAAADAgQBBQAGBwgJCgv/xADDEAABAwMCBAMEBgQHBgQIBnMBAgADEQQSIQUxEyIQBkFRMhRhcSMHgSCRQhWhUjOxJGIwFsFy0UOSNIII4VNAJWMXNfCTc6JQRLKD8SZUNmSUdMJg0oSjGHDiJ0U3ZbNVdaSVw4Xy00Z2gONHVma0CQoZGigpKjg5OkhJSldYWVpnaGlqd3h5eoaHiImKkJaXmJmaoKWmp6ipqrC1tre4ubrAxMXGx8jJytDU1dbX2Nna4OTl5ufo6erz9PX29/j5+v/EAB8BAAMBAQEBAQEBAQEAAAAAAAECAAMEBQYHCAkKC//EAMMRAAICAQMDAwIDBQIFAgQEhwEAAhEDEBIhBCAxQRMFMCIyURRABjMjYUIVcVI0gVAkkaFDsRYHYjVT8NElYMFE4XLxF4JjNnAmRVSSJ6LSCAkKGBkaKCkqNzg5OkZHSElKVVZXWFlaZGVmZ2hpanN0dXZ3eHl6gIOEhYaHiImKkJOUlZaXmJmaoKOkpaanqKmqsLKztLW2t7i5usDCw8TFxsfIycrQ09TV1tfY2drg4uPk5ebn6Onq8vP09fb3+Pn6/9sAQwAEBAQEBAQIBAQICwgICAsPCwsLCw8SDw8PDw8SFhISEhISEhYWFhYWFhYWGxsbGxsbHx8fHx8jIyMjIyMjIyMj/9sAQwEFBgYJCAkPCAgPJBkUGSQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk/9oADAMBAAIRAxEAAAH3/bVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVtk0rRqnRqnRqnJmp21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bZNKSy4oXb89zVpFDVy3obZ9VQtrFiKu0sfM+zNeqAWlbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq0bUDj01IMPqXzU3qPK0sitqx+hXrK+zq2V8Tnylez6zyu8j7Q64uzA7olFemnRNbbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21Ry9/wCRiFz6OlXXjeu6JePVX2QzZ6ZK5Baw4QCzq+hzL5pQ+zcZtzcp3vnfYb81l7D89+zAdROk221bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVtGqk8b9Z86V7B9G5fQlwyKrvVi0DIEgE6BJipSUiWiMR51U+hc718HP+s+c+oPj6HtiNoVW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21RpiuW4zp+Yy6H4Yq8Ou5sq8ql2JaYjSVNAS4ICzK6YxS3MCJG7l9ty8NZOmPRxe3TsRp2rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbaohUV5xXKRl01PCdpwqa+ndF8++2I1xKDJqGE0tWfP+WstMvYL7y70BNHgnrJNF3lBb64K5y+Y9Xn+nShZE7attq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq0bV4vyfsHni6GJz3O49XQo5y8Zbzs/BKgj0qlHbg1JSuoL1jcJrX3/AIs10x95Y87dYdLyx4nrOzzfW1IJDbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbatExVJWsOQx6+98r9A46iPot00pK7pqIPRX18cXl3WVvUsvGL7JBHB03oNSmnB9G8eMvA2HQNdMrLtuO7o5ekTxHaNmuYzJO2rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq20VyHPei8Nn1UB7Dkcul3znRPweK6C15wH0llzwVnfIW52Ds/OVcO355x1Qoqn9QmzHp+Nu9MrqoRyaa9D7R4/6xvx3W234ttq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq1TbJB86rrepw7q063GPQDnLx9HlHXRnI4Oy62qDNbJhZJIqRrM5qbGnaZ9Zz98VG0Vfstz3Onp83bZk22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rROrn+b9Cr89/Posa/l7ud6fiyE96woKkr37SgeKxjJyPVucUzSiuaxxdV3TrAp/ReD9b25F7bo49tq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbatExXF8+9ruP0qxFrSLsh8ati5qrOwgGyOECvUGwjSFbd7pjVG9G23LVWu2nPO2NttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVkqiuCofTvLcO1zTW0ZdAGSnqaWFJY0xrM1PYgP2jarKx7NV9R1efO20x22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbatExWrLPV4tz/AFfEY91m65SM972ubYi1Gysga/qBVOnP9GLpbrbi22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattqjSmgeWcNQtddYt/R8t/L2XW0nN36p6LUKyuIzZ55Z718493l2v0X8gdmyfS+5DroTtq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rUt15/XhgXjFr0j1vyn1ZG49p2XJ8/ZU3UP8uhte6z3423yt9L/ADDvzOThhq/9F8ztBfS8tHYG21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21R5F674TXAN5r2vaPTvOvSEI65/4gWtOi8Kr93+w55++58uL8M9U87NTa1Gw3S0XSg+52tbZAbbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21aJig/PH0F84NcyzfMmve+64i+yNLxnsDBn+Yerpvaeia+hMA8y+R8zY1ZUrZJDOOt5jto+yOwmUbbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21aJ1V/zj9E+E9T8aytQm9t62l6HjXaW8fnP23w/3Pobq6y1Y86fOzFMuHaDEq9ueW7gH1ooyAbbVttW21bbVttW21bbVttW21bbVttW21f/aAAgBAQABBQL/AJZYuZKHJf1fvdw/0jcNdxelpnuy0XO5oKdxnS4LyO4dSP8Af3JOlAn3RSlCKec+4xhrit4xHe2amu6QlIvIgtV2iF295DK5E4Ls7oXCE8P9+65ExibcsiTJIx7tZiXcs0q3CSovVuadC1iUmeOUUTdYxomxjinPuthKEk3YARchSkmv+/a8wuFoSEue+htBLe3Nwq15wabaeSOLbjGk7cQPc5An3KRBMaiV6vn1NrcUXBfQlHvEUgtZgf8AfruVwURzTGFM1/LM0WU064LFKGLaMMBKexAeKXy0F8iEOTbreRybZJEZEFDhKai1ikjROuJaK0/35TL5calkSXFbqWGzSghKUurq6Ojp90pq76wC3VUCttvAqW5mAk2+4M8f+/K+VjFdSLXdW1uiBHDsAksaOrqO1e9eyhUbhAQbWsMt8CLrbSpNz/vyvqqMceVy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';
+
+// ---- Monde virtuel 1440x900, mis à l'échelle de la fenêtre ----
+const W = 1440, H = 900;
+const CHART_TOP = 130, CHART_BOT = 700, ACTIVE_X = 920, SPACING = 88, BODY_W = 34;
+const LAUNCH = { x: 170, y: 775 };
+
+const cv = document.getElementById('game');
+const ctx = cv.getContext('2d');
+let scale = 1, offX = 0, offY = 0;
+function resize() {
+  cv.width = innerWidth * devicePixelRatio; cv.height = innerHeight * devicePixelRatio;
+  cv.style.width = innerWidth + 'px'; cv.style.height = innerHeight + 'px';
+  scale = Math.min(cv.width / W, cv.height / H);
+  offX = (cv.width - W * scale) / 2; offY = (cv.height - H * scale) / 2;
+}
+addEventListener('resize', resize); resize();
+
+// ---- Utilitaires ----
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+const easeOutBack = t => { const c = 1.70158; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
+const rand = (a, b) => a + Math.random() * (b - a);
+const fmt$ = n => (n < 0 ? '-$' : '+$') + Math.abs(Math.round(n)).toLocaleString('en-US');
+function rr(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+
+// ---- Audio (généré, aucun asset) ----
+let AC = null, muted = false;
+function beep(freq, dur, type, gain, when) {
+  if (!AC || muted) return;
+  const t = AC.currentTime + (when || 0);
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = type || 'sine'; o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(CFG.volume * (gain || 0.2), t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(AC.destination); o.start(t); o.stop(t + dur + 0.05);
+}
+const sfx = {
+  throw: () => beep(320, 0.07, 'triangle', 0.12),
+  perfect: () => { beep(740, 0.09, 'sine', 0.25); beep(988, 0.12, 'sine', 0.25, 0.07); },
+  good: () => beep(620, 0.1, 'sine', 0.2),
+  frenzy: () => { [392, 523, 659, 784].forEach((f, i) => beep(f, 0.09, 'triangle', 0.2, i * 0.06)); },
+  alarm: () => { beep(400, 0.12, 'square', 0.2); beep(400, 0.12, 'square', 0.2, 0.18); },
+  bonus: () => { beep(880, 0.07, 'triangle', 0.22); beep(1175, 0.1, 'triangle', 0.22, 0.06); },
+  miss: () => beep(150, 0.22, 'square', 0.18),
+  over: () => { beep(300, 0.15, 'square', 0.15); beep(220, 0.2, 'square', 0.15, 0.15); beep(150, 0.35, 'square', 0.15, 0.32); },
+  win: () => { [523, 659, 784, 1047].forEach((f, i) => beep(f, 0.16, 'sine', 0.2, i * 0.11)); },
+};
+
+// ---- État ----
+let state = 'start'; // start | play | pause | over | win
+let worldT = 0, hitstop = 0, shake = 0;
+let candles, beat, coin, missCoin, particles, floaters;
+let idx, level, pnl, combo, bestCombo, lives, cam, camTarget, camY, camYSpeed, yearFx, lastEraLabel, lastWasPanic, frenzyUntil, frenzyCooldown, greenStreak, panicN, tempoDrift, eventIdx, eventDur, eventToastUntil, eventCur, airdropLeft, crashLeft;
+let best = 0;
+try { best = Number(localStorage.getItem('inkrush-best') || 0); } catch (e) {}
+if (matchMedia('(prefers-reduced-motion: reduce)').matches) CFG.shake = 0;
+
+function reset() {
+  candles = []; beat = null; coin = null; missCoin = null; particles = []; floaters = [];
+  idx = 0; level = 560; pnl = 0; combo = 0; bestCombo = 0; lives = CFG.lives;
+  cam = 0; camTarget = 0; camY = 130; camYSpeed = 3.2; worldT = 0; hitstop = 0; shake = 0;
+  yearFx = { year: 2008, t: 1 };
+  lastEraLabel = '';
+  lastWasPanic = false;
+  frenzyUntil = -1;
+  frenzyCooldown = 0;
+  greenStreak = 0;
+  panicN = 0;
+  tempoDrift = 1;
+  eventIdx = 0;
+  eventDur = 4.2;
+  eventToastUntil = -1;
+  eventCur = null;
+  airdropLeft = 0;
+  crashLeft = 0;
+  nextSpawnAt = 0.7;
+}
+let nextSpawnAt = 0;
+
+const yearOf = i => 2008 + i / 3.6;
+const eraOf = y => { let e = ERAS[0]; for (const it of ERAS) if (y >= it.from) e = it; return e; };
+const beatInterval = () => lerp(CFG.beatStart, CFG.beatEnd, idx / CFG.totalCandles) * eraOf(yearOf(idx)).pace;
+
+// ---- Spawn d'une bougie + d'un beat ----
+function spawnBeat() {
+  const year = yearOf(idx), era = eraOf(year);
+  if (crashLeft > 0) { crashLeft--; dropRedCandle(); return; } // la chute FTX se déroule seule
+  // le tempo global respire : phases calmes et phases pressées (marche aléatoire)
+  tempoDrift = clamp(tempoDrift + rand(-0.15, 0.15), 0.75, 1.1);
+  // ACTU CRYPTO : mini-flash d'une demi-seconde (le jeu continue), puis rappel discret
+  if (eventIdx < EVENTS.length && year >= EVENTS[eventIdx].at) {
+    eventCur = EVENTS[eventIdx++];
+    eventDur = eventCur.img === 'powell' ? 5.2 : 4.2; // Powell reste plus longtemps
+    eventToastUntil = worldT + eventDur;
+    if (eventCur.effect === 'panic') { sfx.alarm(); return spawnPanic(year); }
+    if (eventCur.effect === 'crash') { sfx.alarm(); crashLeft = 5; } // chute automatique, sans mini-jeu
+    if (eventCur.effect === 'fomo') { sfx.frenzy(); startFrenzy(); }
+    if (eventCur.effect === 'airdrop') { sfx.frenzy(); airdropLeft = 3; } // pizza day : 3 jetons ₿ garantis
+  }
+  // PUMP : bougie qui monte — spam ↑, chaque appui rapporte plus
+  const pumpChance = year >= 2012 && !lastWasPanic && worldT >= frenzyUntil && era.bias >= 0.6 ? 0.08 : 0;
+  if (Math.random() < pumpChance) return spawnPump();
+  lastWasPanic = false;
+  const frenzy = worldT < frenzyUntil;
+  let green = Math.random() < (frenzy ? 0.95 : era.bias);
+  const body = rand(55, 105) * era.vol * (frenzy ? 1.25 : 1) + 30;
+  const wick = rand(30, 60) * era.vol + 14;
+  // random walk borné : si l'extrême sort du graphique, on inverse la direction
+  // bornes très larges : la caméra suit, la courbe peut vraiment grimper sur 18 ans
+  if (green && level - body - wick < -9000) green = false;
+  if (!green && level + body + wick > 820) green = true;
+  const extreme = green ? level - body - wick : level + body + wick;
+  const c = {
+    slot: idx, green, body, wick,
+    top: green ? level - body : level, bot: green ? level : level + body,
+    grow: 0, wickProg: 0, done: false, missed: false,
+  };
+  c.extremeY = green ? c.top - wick : c.bot + wick;
+  level = green ? c.top : c.bot;
+  candles.push(c);
+  if (candles.length > 16) candles.shift();
+  camTarget = Math.max(0, idx * SPACING - (ACTIVE_X - 220));
+
+  // touches demandées
+  const dualChance = (year >= CFG.dualFromYear ? clamp(0.08 + (year - CFG.dualFromYear) * 0.03, 0, 0.38) : 0) + (frenzy ? 0.2 : 0);
+  const dirs = green ? ['up', 'up', 'left', 'right'] : ['down', 'down', 'left', 'right'];
+  let keys = [dirs[Math.floor(Math.random() * dirs.length)]];
+  if (Math.random() < dualChance) {
+    const pairs = [['up', 'right'], ['up', 'left'], ['down', 'right'], ['down', 'left']]; // jamais deux opposées
+    keys = pairs[Math.floor(Math.random() * pairs.length)];
+  }
+  const tThrow = worldT + CFG.growDur * 0.6;
+  // bougie courte = lancer éclair : beaucoup moins de temps pour réagir
+  const sizeF = lerp(0.5, 1.3, clamp((body + wick - 70) / 170, 0, 1));
+  // le rythme respire : parfois un long vol plané, parfois un lancer sec
+  const rr2 = Math.random();
+  const rhythm = rr2 < 0.22 ? rand(1.35, 1.75) : rr2 < 0.45 ? rand(0.72, 0.85) : 1;
+  const flight = CFG.approach * sizeF * rhythm * (era.pace < 0.9 ? 0.9 : 1) * (frenzy ? 0.82 : 1);
+  beat = { c, keys, pressed: {}, tThrow, flight, hitT: tThrow + flight, resolved: false, result: null, resolveT: 0, thrown: false, bonus: null,
+    frenzy, pw: CFG.perfect * (frenzy ? 0.8 : 1), gw: CFG.good * (frenzy ? 0.8 : 1) };
+  // jeton ₿ croisé en route : bonus si on presse sa touche au passage, aucune pénalité si ignoré
+  const bonusChance = airdropLeft > 0 ? 1 : (year >= 2011 ? Math.min(0.5, 0.15 + (year - 2011) * 0.03) : 0);
+  if (airdropLeft > 0) airdropLeft--;
+  if (Math.random() < bonusChance && flight >= 0.62) { // assez de vol pour le voir venir
+    const free = ['up', 'down', 'left', 'right'].filter(d => !keys.includes(d));
+    const pB = rand(0.68, 0.8); // juste avant la cible, là où l'œil est déjà posé
+    beat.bonus = { p: pB, key: free[Math.floor(Math.random() * free.length)], t: tThrow + pB * flight, done: false };
+  }
+  const yr = Math.floor(year);
+  if (yr !== yearFx.year) yearFx = { year: yr, t: 0 };
+  if (era.label !== lastEraLabel) { // annonce du changement d'époque
+    lastEraLabel = era.label;
+    addFloater(era.label, 720, 330, era.bias >= 0.5 ? PAL.green : PAL.red, 42);
+    beep(era.bias >= 0.5 ? 660 : 240, 0.14, 'triangle', 0.14);
+  }
+  // FOMO RUSH : rare, et seulement porté par une vraie série de bougies vertes
+  greenStreak = c.green ? greenStreak + 1 : 0;
+  if (!frenzy && greenStreak >= 4 && worldT >= frenzyCooldown && Math.random() < 0.3) startFrenzy();
+  idx++;
+}
+
+// ---- Jugement ----
+function resolve(result, label, color) {
+  beat.resolved = true; beat.result = result; beat.resolveT = worldT;
+  const c = beat.c;
+  if (result === 'miss') {
+    c.missed = true; combo = 0; lives--;
+    shake = 10 * CFG.shake; hitstop = 0.09; sfx.miss();
+    missCoin = coin ? { x: coin.x, y: coin.y, vx: 240, vy: -120 } : null; coin = null;
+    addFloater(label, targetPos(c).x, targetPos(c).y - 46, PAL.red, 22);
+    if (lives <= 0) return gameEnd(false);
+  } else {
+    const base = Math.round(c.body + c.wick);
+    const gain = Math.round(base * (result === 'perfect' ? 2.2 : 1) * (1 + combo * 0.08) * 10) * (beat.frenzy ? 3 : 1);
+    pnl += gain; combo++; bestCombo = Math.max(bestCombo, combo);
+    c.done = true; coin = null;
+    if (result === 'perfect') { shake = 6 * CFG.shake; hitstop = 0.07; sfx.perfect(); } else sfx.good();
+    const p = targetPos(c);
+    burst(p.x, p.y, result === 'perfect' ? 16 : 9, c.green ? PAL.green : PAL.red);
+    addFloater(label + '  ' + fmt$(gain), p.x, p.y - 50, result === 'perfect' ? PAL.purpleHi : PAL.text, result === 'perfect' ? 24 : 19);
+  }
+  if (idx >= CFG.totalCandles) return gameEnd(true);
+  // cadence : l'époque donne le tempo (bull run rapide, marché calme plus lent)
+  const baseGap = Math.max(beat.frenzy ? CFG.gap * 0.5 : CFG.gap, (beatInterval() - beat.flight) * (beat.frenzy ? 0.4 : 1));
+  // cadence irrégulière : parfois enchaîné sec, parfois une respiration
+  const jitter = Math.random() < 0.15 ? 0.35 : rand(0.5, 1.15);
+  nextSpawnAt = worldT + Math.max(0.1, baseGap * jitter * tempoDrift);
+}
+
+function startFrenzy() {
+  frenzyUntil = worldT + CFG.frenzyDur;
+  frenzyCooldown = worldT + 50; // rare : long temps mort après chaque rush
+  greenStreak = 0;
+  addFloater('FOMO RUSH  ×3', 720, 390, PAL.gold, 46);
+  sfx.frenzy();
+}
+
+function dropRedCandle() { // chaque avancée du panic fait tomber une vraie bougie rouge
+  if (idx >= CFG.totalCandles - 1) return;
+  const h = rand(40, 85), w = rand(10, 26);
+  const bot = Math.min(880, level + h);
+  const c = { slot: idx, green: false, top: level, bot, body: bot - level, wick: w, grow: 1, wickProg: 1, done: true, missed: false, panic: true, extremeY: bot + w };
+  level = bot;
+  candles.push(c);
+  if (candles.length > 16) candles.shift();
+  camTarget = Math.max(0, idx * SPACING - (ACTIVE_X - 220));
+  idx++;
+  camYSpeed = 9;
+  shake = Math.max(shake, 4 * CFG.shake);
+  burst(220 + c.slot * SPACING - camTarget, sy(bot), 5, PAL.red);
+}
+
+function riseGreenCandle() { // le pump fait monter de vraies bougies vertes
+  if (idx >= CFG.totalCandles - 1) return;
+  const h = rand(40, 85), w = rand(10, 26);
+  const top = Math.max(-9200, level - h);
+  const c = { slot: idx, green: true, top, bot: level, body: level - top, wick: w, grow: 1, wickProg: 1, done: true, missed: false, panic: true, extremeY: top - w };
+  level = top;
+  candles.push(c);
+  if (candles.length > 16) candles.shift();
+  camTarget = Math.max(0, idx * SPACING - (ACTIVE_X - 220));
+  idx++;
+  camYSpeed = 9;
+  shake = Math.max(shake, 3 * CFG.shake);
+  burst(220 + c.slot * SPACING - camTarget, sy(top), 5, PAL.green);
+}
+
+function spawnPump() {
+  beat = { type: 'pump', tStart: worldT + 0.6, tEnd: worldT + 0.6 + CFG.pumpDur, count: 0, resolved: false };
+  sfx.frenzy();
+  lastWasPanic = true;
+}
+
+function pumpPress(dir) {
+  if (dir !== 'up' || worldT < beat.tStart || worldT > beat.tEnd) return;
+  beat.count++;
+  pnl += Math.round((40 + beat.count * 14) * (1 + combo * 0.05)); // chaque appui vaut plus que le précédent
+  shake = Math.max(shake, 2.5 * CFG.shake);
+  beep(Math.min(1100, 320 + beat.count * 34), 0.05, 'triangle', 0.16);
+  riseGreenCandle(); // chaque appui fait monter la courbe
+}
+
+function resolvePump() {
+  beat.resolved = true;
+  if (beat.count >= CFG.pumpTarget) {
+    const gain = Math.round(600 * (1 + combo * 0.08));
+    pnl += gain; combo++; bestCombo = Math.max(bestCombo, combo);
+    sfx.perfect(); burst(720, 380, 16, PAL.green);
+    addFloater('PUMPED  ' + fmt$(gain), 720, 400, PAL.gold, 24);
+  } else if (beat.count >= 6) {
+    addFloater('NICE PUMP', 720, 400, PAL.green, 19);
+  } else {
+    addFloater('MEH', 720, 400, PAL.muted, 18);
+  }
+  if (idx >= CFG.totalCandles) return gameEnd(true);
+  nextSpawnAt = worldT + CFG.gap + 0.3;
+}
+
+function spawnPanic(year) {
+  greenStreak = 0;
+  panicN++;
+  if (panicN === 1) { // le premier : martèlement, comme au bon vieux temps
+    beat = { type: 'panic', mode: 'mash', tStart: worldT + 0.7, tEnd: worldT + 0.7 + CFG.panicDur, count: 0, wrongAt: -9, resolved: false };
+  } else { // les suivants : séquence de flèches à enchaîner dans l'ordre
+    const n = Math.min(9, 6 + Math.floor((year - 2013) / 4));
+    const dirs = ['up', 'down', 'left', 'right'];
+    const seq = [];
+    for (let i = 0; i < n; i++) {
+      let d = dirs[Math.floor(Math.random() * 4)];
+      if (d === seq[seq.length - 1]) d = dirs[(dirs.indexOf(d) + 1 + Math.floor(Math.random() * 3)) % 4];
+      seq.push(d);
+    }
+    beat = { type: 'panic', mode: 'seq', seq, pos: 0, tStart: worldT + 0.9, tEnd: worldT + 0.9 + n * CFG.panicPerKey + 0.4, wrongAt: -9, resolved: false };
+  }
+  sfx.alarm();
+  const yr = Math.floor(year);
+  if (yr !== yearFx.year) yearFx = { year: yr, t: 0 };
+  lastWasPanic = true;
+}
+
+function panicPress(dir) {
+  if (worldT < beat.tStart || worldT > beat.tEnd) return;
+  if (beat.mode === 'mash') {
+    if (dir !== 'down') return;
+    beat.count++;
+    pnl += Math.round(60 * (1 + combo * 0.05));
+    shake = Math.max(shake, 3 * CFG.shake);
+    beep(Math.max(180, 520 - beat.count * 18), 0.05, 'square', 0.15);
+    if (beat.count % 3 === 0) dropRedCandle(); // tous les 3 appuis, une bougie rouge tombe
+    return;
+  }
+  if (dir === beat.seq[beat.pos]) {
+    beat.pos++;
+    pnl += Math.round(120 * (1 + combo * 0.05));
+    shake = Math.max(shake, 3 * CFG.shake);
+    beep(Math.max(200, 560 - beat.pos * 30), 0.06, 'square', 0.16);
+    if (beat.pos % 2 === 0 || beat.pos >= beat.seq.length) dropRedCandle();
+    if (beat.pos >= beat.seq.length) resolvePanic(true);
+  } else {
+    beat.wrongAt = worldT; // mauvaise touche : flash + pénalité de temps
+    beat.tEnd -= 0.35;
+    beep(140, 0.12, 'square', 0.16);
+  }
+}
+
+function resolvePanic(seqComplete) {
+  beat.resolved = true;
+  const x = 720;
+  const isMash = beat.mode === 'mash';
+  const full = isMash ? beat.count >= CFG.panicTarget : seqComplete;
+  const partial = isMash ? beat.count >= 6 : beat.pos >= beat.seq.length * 0.7;
+  if (full) {
+    const gain = Math.round((isMash ? 800 : 150 * beat.seq.length) * (1 + combo * 0.08));
+    pnl += gain; combo++; bestCombo = Math.max(bestCombo, combo);
+    shake = 8 * CFG.shake; hitstop = 0.07;
+    sfx.perfect(); burst(x, 430, 18, PAL.red);
+    addFloater('SOLD EVERYTHING  ' + fmt$(gain), x, 440, PAL.gold, 24);
+  } else if (partial) {
+    addFloater('SOLD', x, 440, PAL.text, 19);
+  } else {
+    combo = 0;
+    addFloater('TOO SLOW', x, 440, PAL.red, 22);
+  }
+  if (idx >= CFG.totalCandles) return gameEnd(true);
+  nextSpawnAt = worldT + CFG.gap + 0.4;
+}
+
+function press(dir) {
+  if (!beat || beat.resolved) return;
+  if (beat.type === 'panic') return panicPress(dir);
+  if (beat.type === 'pump') return pumpPress(dir);
+  if (worldT < beat.tThrow) return;
+  // jeton bonus croisé : sa touche pendant sa fenêtre = gain, sans toucher au jugement principal
+  const b = beat.bonus;
+  if (b && !b.done && dir === b.key && Math.abs(worldT - b.t) <= CFG.bonusWindow) {
+    b.done = true;
+    const gain = Math.round(400 * (1 + combo * 0.08));
+    pnl += gain; sfx.bonus();
+    const pos = bezPoint(beat.c, b.p);
+    burst(pos.x, pos.y, 10, PAL.gold);
+    addFloater('BONUS ' + fmt$(gain), pos.x, pos.y - 36, PAL.gold, 20);
+    return;
+  }
+  const err = worldT - beat.hitT;
+  if (beat.pressed[dir] !== undefined) return;
+  if (!beat.keys.includes(dir)) return resolve('miss', 'WRONG KEY', PAL.red);
+  if (err < -beat.gw) return resolve('miss', 'TOO EARLY', PAL.red);
+  beat.pressed[dir] = Math.abs(err);
+  if (Object.keys(beat.pressed).length === beat.keys.length) {
+    const worst = Math.max(...Object.values(beat.pressed));
+    resolve(worst <= beat.pw ? 'perfect' : 'good', worst <= beat.pw ? 'PERFECT' : 'GOOD', PAL.green);
+  }
+}
+
+function gameEnd(won) {
+  state = won ? 'win' : 'over';
+  if (won) sfx.win(); else sfx.over();
+  best = Math.max(best, pnl);
+  try { localStorage.setItem('inkrush-best', String(best)); } catch (e) {}
+  document.getElementById('endTitle').textContent = won ? 'TO THE MOON' : 'REKT';
+  document.getElementById('endTitle').style.color = won ? PAL.green : PAL.red;
+  document.getElementById('endSub').textContent = won ? '2008 → 2026 · RUN COMPLET' : 'ANNÉE ATTEINTE : ' + Math.floor(yearOf(Math.max(0, idx - 1)));
+  document.getElementById('endPnl').textContent = fmt$(pnl);
+  document.getElementById('endCombo').textContent = '×' + bestCombo;
+  document.getElementById('endBest').textContent = fmt$(best);
+  document.getElementById('endOverlay').hidden = false;
+}
+
+// ---- Effets ----
+function addFloater(text, x, y, color, size) { floaters.push({ text, x, y, color, size, a: 1 }); }
+function burst(x, y, n, color) {
+  for (let i = 0; i < n; i++) {
+    const a = rand(0, Math.PI * 2), s = rand(80, 300);
+    particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 60, r: rand(2, 5), color: Math.random() < 0.5 ? color : PAL.purpleHi, a: 1 });
+  }
+}
+function targetPos(c) { return { x: 220 + c.slot * SPACING - camTarget, y: c.extremeY - camY }; }
+function bezPoint(c, p) { // trajectoire du lancer (bézier quadratique)
+  const t = targetPos(c), bx = (LAUNCH.x + t.x) / 2, by = Math.min(LAUNCH.y, t.y) - 190, u = 1 - p;
+  return { x: u * u * LAUNCH.x + 2 * u * p * bx + p * p * t.x, y: u * u * LAUNCH.y + 2 * u * p * by + p * p * t.y };
+}
+// position x réelle d'une bougie à l'écran
+const candleX = c => 220 + c.slot * SPACING - cam;
+// caméra verticale : quand le cours monte, la vue monte avec lui
+const sy = y => y - camY;
+const priceAt = y => Math.max(0, Math.round((700 - y) * 75));
+const fmtPrice = v => v >= 1000 ? '$' + Math.round(v / 1000) + 'K' : '$' + v;
+
+// pictos d'actus, en trait monochrome
+function drawEventIcon(kind, cx, cy) {
+  ctx.save();
+  ctx.strokeStyle = PAL.text; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  if (kind === 'pizza') {
+    ctx.moveTo(cx - 44, cy - 34); ctx.quadraticCurveTo(cx, cy - 52, cx + 44, cy - 34);
+    ctx.lineTo(cx, cy + 50); ctx.closePath(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - 44, cy - 26); ctx.quadraticCurveTo(cx, cy - 44, cx + 44, cy - 26); ctx.stroke();
+    [[cx - 14, cy - 10], [cx + 14, cy - 14], [cx, cy + 14]].forEach(pt => { ctx.beginPath(); ctx.arc(pt[0], pt[1], 6, 0, 7); ctx.stroke(); });
+  } else if (kind === 'eth') {
+    ctx.moveTo(cx, cy - 56); ctx.lineTo(cx + 40, cy + 2); ctx.lineTo(cx, cy + 24); ctx.lineTo(cx - 40, cy + 2); ctx.closePath(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - 40, cy + 14); ctx.lineTo(cx, cy + 58); ctx.lineTo(cx + 40, cy + 14); ctx.lineTo(cx, cy + 34); ctx.closePath(); ctx.stroke();
+  } else if (kind === 'virus') {
+    ctx.arc(cx, cy, 30, 0, 7); ctx.stroke();
+    for (let i = 0; i < 8; i++) {
+      const a2 = i * Math.PI / 4;
+      ctx.beginPath(); ctx.moveTo(cx + Math.cos(a2) * 30, cy + Math.sin(a2) * 30); ctx.lineTo(cx + Math.cos(a2) * 46, cy + Math.sin(a2) * 46); ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx + Math.cos(a2) * 52, cy + Math.sin(a2) * 52, 5, 0, 7); ctx.stroke();
+    }
+  } else if (kind === 'rocket') {
+    ctx.moveTo(cx, cy - 58); ctx.quadraticCurveTo(cx + 22, cy - 20, cx + 16, cy + 26); ctx.lineTo(cx - 16, cy + 26); ctx.quadraticCurveTo(cx - 22, cy - 20, cx, cy - 58); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy - 14, 9, 0, 7); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - 16, cy + 8); ctx.lineTo(cx - 34, cy + 34); ctx.lineTo(cx - 16, cy + 26); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx + 16, cy + 8); ctx.lineTo(cx + 34, cy + 34); ctx.lineTo(cx + 16, cy + 26); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - 8, cy + 26); ctx.lineTo(cx, cy + 48); ctx.lineTo(cx + 8, cy + 26); ctx.stroke();
+  } else if (kind === 'crack') {
+    ctx.moveTo(cx - 48, cy - 22); ctx.lineTo(cx, cy - 52); ctx.lineTo(cx + 48, cy - 22); ctx.closePath(); ctx.stroke();
+    [-32, 0, 32].forEach(dx => { ctx.beginPath(); ctx.moveTo(cx + dx, cy - 14); ctx.lineTo(cx + dx, cy + 34); ctx.stroke(); });
+    ctx.beginPath(); ctx.moveTo(cx - 52, cy + 44); ctx.lineTo(cx + 52, cy + 44); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx - 4, cy - 48); ctx.lineTo(cx + 10, cy - 16); ctx.lineTo(cx - 8, cy + 12); ctx.lineTo(cx + 6, cy + 40); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ---- Update ----
+function update(dt) {
+  if (hitstop > 0) { hitstop -= dt; return; }
+  worldT += dt;
+  cam += (camTarget - cam) * Math.min(1, dt * 6);
+  camY += ((level - 470) - camY) * Math.min(1, dt * camYSpeed);
+  camYSpeed += (3.2 - camYSpeed) * Math.min(1, dt * 2);
+  yearFx.t = Math.min(1, yearFx.t + dt * 2);
+  if (shake > 0) shake = Math.max(0, shake - dt * 30);
+
+  if ((!beat || beat.resolved) && worldT >= nextSpawnAt && idx < CFG.totalCandles) spawnBeat();
+
+  if (beat && !beat.resolved && beat.type === 'panic') {
+    if (worldT > beat.tEnd) resolvePanic(false);
+  } else if (beat && !beat.resolved && beat.type === 'pump') {
+    if (worldT > beat.tEnd) resolvePump();
+  } else if (beat && !beat.resolved) {
+    const c = beat.c;
+    c.grow = Math.min(1, c.grow + dt / CFG.growDur);
+    if (worldT >= beat.tThrow) {
+      if (!beat.thrown) { beat.thrown = true; sfx.throw(); }
+      const p = clamp((worldT - beat.tThrow) / beat.flight, 0, 1);
+      c.wickProg = p;
+      const pos = bezPoint(c, p);
+      coin = { x: pos.x, y: pos.y, rot: p * 5 };
+      if (worldT > beat.hitT + beat.gw) resolve('miss', 'MISS', PAL.red);
+    }
+  }
+
+  if (missCoin) {
+    missCoin.vy += 900 * dt; missCoin.x += missCoin.vx * dt; missCoin.y += missCoin.vy * dt;
+    if (missCoin.y > H + 60) missCoin = null;
+  }
+  if (worldT < frenzyUntil && Math.random() < dt * 26) // pluie montante dorée
+    particles.push({ x: rand(0, W), y: 820, vx: rand(-20, 20), vy: rand(-260, -120), r: rand(2, 4), color: PAL.gold, a: rand(0.5, 1), g: 40 });
+  for (const p of particles) { p.vy += (p.g === undefined ? 500 : p.g) * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.a -= dt * 1.8; }
+  particles = particles.filter(p => p.a > 0);
+  for (const f of floaters) { f.y -= 34 * dt; f.a -= dt * 1.1; }
+  floaters = floaters.filter(f => f.a > 0);
+}
+
+// ---- Rendu ----
+function arrowPath(dir, s) {
+  ctx.beginPath();
+  if (dir === 'up') { ctx.moveTo(0, s * 0.55); ctx.lineTo(0, -s * 0.55); ctx.moveTo(-s * 0.42, -s * 0.1); ctx.lineTo(0, -s * 0.55); ctx.lineTo(s * 0.42, -s * 0.1); }
+  if (dir === 'down') { ctx.moveTo(0, -s * 0.55); ctx.lineTo(0, s * 0.55); ctx.moveTo(-s * 0.42, s * 0.1); ctx.lineTo(0, s * 0.55); ctx.lineTo(s * 0.42, s * 0.1); }
+  if (dir === 'left') { ctx.moveTo(s * 0.55, 0); ctx.lineTo(-s * 0.55, 0); ctx.moveTo(-s * 0.1, -s * 0.42); ctx.lineTo(-s * 0.55, 0); ctx.lineTo(-s * 0.1, s * 0.42); }
+  if (dir === 'right') { ctx.moveTo(-s * 0.55, 0); ctx.lineTo(s * 0.55, 0); ctx.moveTo(s * 0.1, -s * 0.42); ctx.lineTo(s * 0.55, 0); ctx.lineTo(s * 0.1, s * 0.42); }
+}
+function drawCoin(x, y, r, rot) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot || 0);
+  ctx.fillStyle = PAL.purple; ctx.strokeStyle = '#C9BBFF'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#FFF'; ctx.font = '700 ' + Math.round(r * 0.42) + 'px "Space Grotesk"';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('INK', 0, -r * 0.05);
+  ctx.strokeStyle = '#FFFFFFE6'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(-r * 0.3, r * 0.32); ctx.quadraticCurveTo(0, r * 0.14, r * 0.3, r * 0.32); ctx.stroke();
+  ctx.restore();
+}
+function keycap(x, y, dir, active, s, color) {
+  s = s || 26; color = color || PAL.purpleHi;
+  ctx.fillStyle = PAL.purpleDeep;
+  ctx.strokeStyle = active ? color : (color === PAL.purpleHi ? PAL.purple : color);
+  ctx.lineWidth = active ? 3 : 2;
+  rr(x - s, y - s, s * 2, s * 2, s * 0.42); ctx.fill(); ctx.stroke();
+  ctx.save(); ctx.translate(x, y);
+  ctx.strokeStyle = color; ctx.lineWidth = Math.max(3, s * 0.15); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  arrowPath(dir, s); ctx.stroke(); ctx.restore();
+}
+
+function render() {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#06080F'; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.setTransform(scale, 0, 0, scale, offX, offY);
+  ctx.fillStyle = PAL.bg; ctx.fillRect(0, 0, W, H);
+
+  const year = Math.floor(yearOf(Math.max(0, idx - 1))), era = eraOf(yearOf(Math.max(0, idx - 1)));
+  const mon = MONTHS[Math.floor((yearOf(Math.max(0, idx - 1)) % 1) * 12)];
+
+  // millésime géant (la piste C, en nocturne)
+  ctx.save();
+  ctx.globalAlpha = 0.05 * easeOutCubic(yearFx.t);
+  ctx.fillStyle = PAL.text; ctx.font = '700 330px "Space Grotesk"';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(String(yearFx.year), 1100, 430 + (1 - easeOutCubic(yearFx.t)) * 30);
+  ctx.restore();
+
+  // secousse : seulement le monde (pas le HUD)
+  ctx.save();
+  if (shake > 0) ctx.translate(rand(-shake, shake), rand(-shake, shake));
+
+  // grille de prix : défile avec la caméra, les paliers montent avec le cours
+  const y0 = Math.floor((camY + 100) / 100) * 100;
+  ctx.font = '500 9px "IBM Plex Mono"'; ctx.textAlign = 'right';
+  for (let wy = y0; wy < camY + 730; wy += 100) {
+    const ys = sy(wy);
+    if (ys < 90 || ys > 782) continue;
+    ctx.strokeStyle = PAL.grid; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, ys); ctx.lineTo(W, ys); ctx.stroke();
+    ctx.fillStyle = PAL.faint; ctx.fillText(fmtPrice(priceAt(wy)), 1424, ys - 6);
+  }
+  ctx.textAlign = 'left';
+
+  // bougies
+  for (const c of candles) {
+    const x = candleX(c);
+    if (x < -60 || x > W + 60) continue;
+    const col = c.green ? PAL.green : PAL.red;
+    const isActive = beat && beat.c === c && !c.done && !c.missed;
+    ctx.globalAlpha = c.done || c.missed ? 0.55 : isActive ? 1 : 0.75;
+    if (c.missed) ctx.globalAlpha = 0.3;
+    const g = easeOutCubic(c.grow);
+    const bh = (c.bot - c.top) * g;
+    const ct = sy(c.top), cb = sy(c.bot);
+    if (cb < -90 || ct > H + 90) { ctx.globalAlpha = 1; continue; }
+    const by = c.green ? cb - bh : ct;
+    // mèche : pousse vers l'extrême pendant le vol du jeton
+    const wickLen = c.wick * (c.done || c.missed ? 1 : c.wickProg);
+    ctx.strokeStyle = col; ctx.lineWidth = 3;
+    ctx.beginPath();
+    if (c.green) { ctx.moveTo(x, ct - wickLen); ctx.lineTo(x, cb); }
+    else { ctx.moveTo(x, ct); ctx.lineTo(x, cb + wickLen); }
+    ctx.stroke();
+    ctx.fillStyle = col;
+    rr(x - BODY_W / 2, by, BODY_W, Math.max(4, bh), 3); ctx.fill();
+    if (isActive) { ctx.strokeStyle = c.green ? PAL.greenHi : '#FFB3BA'; ctx.lineWidth = 1.5; rr(x - BODY_W / 2, by, BODY_W, Math.max(4, bh), 3); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+    if (c.done && !c.panic) drawCoin(x, sy(c.extremeY), 15, 0);
+  }
+
+  // beat actif : anneau + jeton + touches
+  if (beat && !beat.resolved && worldT >= beat.tThrow) {
+    const c = beat.c, x = candleX(c), ty = sy(c.extremeY);
+    const p = clamp((worldT - beat.tThrow) / beat.flight, 0, 1);
+    // anneau qui se referme = le tempo visuel
+    ctx.globalAlpha = 0.25 + p * 0.75;
+    ctx.strokeStyle = PAL.purpleHi; ctx.lineWidth = 2; ctx.setLineDash([6, 5]);
+    ctx.beginPath(); ctx.arc(x, ty, lerp(78, 24, p), 0, 7); ctx.stroke(); ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    // touches demandées, à droite de la cible (au-dessus si bord)
+    const near = worldT > beat.hitT - beat.gw;
+    beat.keys.forEach((k, i) => {
+      const kx = Math.min(x + 84 + i * 62, W - 46);
+      keycap(kx, clamp(ty - 8, 60, 840), k, near);
+      if (beat.pressed[k] !== undefined) { ctx.fillStyle = PAL.green; ctx.beginPath(); ctx.arc(kx + 20, clamp(ty - 8, 60, 840) - 20, 5, 0, 7); ctx.fill(); }
+    });
+    if (coin) drawCoin(coin.x, coin.y, 17, coin.rot);
+  }
+  // jeton ₿ bonus : visible dès la naissance de la bougie, posé juste avant la cible
+  if (beat && !beat.resolved && beat.c && beat.bonus && !beat.bonus.done) {
+    const b = beat.bonus, pos = bezPoint(beat.c, b.p);
+    const activeB = Math.abs(worldT - b.t) < CFG.bonusWindow;
+    const passed = worldT > b.t + CFG.bonusWindow;
+    ctx.globalAlpha = passed ? 0.2 : 1;
+    // anneau d'approche : se referme jusqu'au moment de presser
+    if (!passed && !activeB && worldT < b.t) {
+      const ap = clamp(1 - (b.t - worldT) / 0.9, 0, 1);
+      ctx.globalAlpha = 0.2 + ap * 0.6;
+      ctx.strokeStyle = PAL.gold; ctx.lineWidth = 1.5; ctx.setLineDash([5, 5]);
+      ctx.beginPath(); ctx.arc(pos.x, pos.y, lerp(56, 24, ap), 0, 7); ctx.stroke(); ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+    }
+    ctx.fillStyle = PAL.gold; ctx.strokeStyle = '#FFE49A'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(pos.x, pos.y, 14, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#0A0D16'; ctx.font = '700 14px "Space Grotesk"'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('\u20BF', pos.x, pos.y + 1);
+    ctx.textBaseline = 'alphabetic';
+    keycap(pos.x, pos.y - 46, b.key, activeB, 19, PAL.gold);
+    if (activeB) { ctx.strokeStyle = PAL.gold; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(pos.x, pos.y, 24, 0, 7); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+  }
+  // FOMO RUSH : vignette dorée + bannière + temps restant
+  if (state === 'play' && worldT < frenzyUntil && (!beat || (beat.type !== 'panic' && beat.type !== 'pump'))) {
+    ctx.fillStyle = 'rgba(0,214,143,' + (0.03 + 0.03 * Math.sin(worldT * 10)).toFixed(3) + ')';
+    ctx.fillRect(0, 78, W, 722);
+    ctx.textAlign = 'center';
+    ctx.globalAlpha = 0.85 + 0.15 * Math.sin(worldT * 13);
+    ctx.fillStyle = PAL.gold; ctx.font = '700 40px "Space Grotesk"';
+    ctx.fillText('FOMO RUSH  ×3', 720, 240);
+    ctx.font = '500 12px "IBM Plex Mono"';
+    ctx.fillText('PLUS SERRÉ · PLUS RAPIDE · TOUT COMPTE TRIPLE', 720, 268);
+    ctx.globalAlpha = 1;
+    const rem = clamp((frenzyUntil - worldT) / CFG.frenzyDur, 0, 1);
+    ctx.fillStyle = '#161C2C'; rr(570, 284, 300, 6, 3); ctx.fill();
+    ctx.fillStyle = PAL.gold; rr(570, 284, 300 * rem, 6, 3); ctx.fill();
+  }
+  // PUMP : vignette verte, spam ↑
+  if (beat && beat.type === 'pump' && !beat.resolved) {
+    const armed = worldT >= beat.tStart;
+    ctx.fillStyle = 'rgba(0,214,143,' + (0.04 + 0.03 * Math.sin(worldT * 12)).toFixed(3) + ')';
+    ctx.fillRect(0, 78, W, 722);
+    ctx.textAlign = 'center';
+    ctx.globalAlpha = 0.85 + 0.15 * Math.sin(worldT * 14);
+    ctx.fillStyle = PAL.green; ctx.font = '700 46px "Space Grotesk"';
+    ctx.fillText('PUMP IT !', 720, 232);
+    ctx.font = '500 13px "IBM Plex Mono"';
+    ctx.fillText(armed ? 'SPAM ↑ — CHAQUE APPUI RAPPORTE PLUS' : 'PRÉPARE-TOI…', 720, 264);
+    ctx.globalAlpha = 1;
+    keycap(720, 352, 'up', armed, 34, PAL.green);
+    if (armed && beat.count > 0) {
+      ctx.fillStyle = PAL.green; ctx.font = '700 26px "Space Grotesk"';
+      ctx.fillText('×' + beat.count, 720, 434);
+    }
+    if (armed) {
+      const rem = clamp((beat.tEnd - worldT) / CFG.pumpDur, 0, 1);
+      ctx.fillStyle = '#161C2C'; rr(570, 462, 300, 6, 3); ctx.fill();
+      ctx.fillStyle = PAL.green; rr(570, 462, 300 * rem, 6, 3); ctx.fill();
+    }
+  }
+  // PANIC SELL : vignette rouge + séquence de flèches à enchaîner
+  if (beat && beat.type === 'panic' && !beat.resolved) {
+    const armed = worldT >= beat.tStart;
+    ctx.fillStyle = 'rgba(255,77,94,' + (0.05 + 0.04 * Math.sin(worldT * 12)).toFixed(3) + ')';
+    ctx.fillRect(0, 78, W, 722);
+    if (worldT - beat.wrongAt < 0.18) { ctx.fillStyle = 'rgba(255,77,94,0.16)'; ctx.fillRect(0, 78, W, 722); }
+    ctx.textAlign = 'center';
+    ctx.globalAlpha = 0.85 + 0.15 * Math.sin(worldT * 14);
+    ctx.fillStyle = PAL.red; ctx.font = '700 46px "Space Grotesk"';
+    ctx.fillText('PANIC SELL !', 720, 232);
+    ctx.font = '500 13px "IBM Plex Mono"';
+    ctx.fillText(armed ? (beat.mode === 'mash' ? 'MARTÈLE ↓ POUR TOUT VENDRE' : 'ENCHAÎNE LA SÉQUENCE, DANS L\u2019ORDRE !') : 'PRÉPARE-TOI…', 720, 264);
+    ctx.globalAlpha = 1;
+    if (beat.mode === 'mash') {
+      keycap(720, 352, 'down', armed, 34, PAL.red);
+      if (armed && beat.count > 0) {
+        ctx.fillStyle = PAL.red; ctx.font = '700 26px "Space Grotesk"';
+        ctx.fillText('×' + beat.count, 720, 434);
+      }
+      if (armed) {
+        const rem = clamp((beat.tEnd - worldT) / CFG.panicDur, 0, 1);
+        ctx.fillStyle = '#161C2C'; rr(570, 462, 300, 6, 3); ctx.fill();
+        ctx.fillStyle = PAL.red; rr(570, 462, 300 * rem, 6, 3); ctx.fill();
+      }
+    } else {
+      const n = beat.seq.length, sp = 64, x0 = 720 - (n - 1) * sp / 2;
+      for (let i = 0; i < n; i++) {
+        const done = i < beat.pos, cur = i === beat.pos && armed;
+        ctx.globalAlpha = done ? 0.4 : cur ? 1 : 0.7;
+        keycap(x0 + i * sp, 340, beat.seq[i], cur, cur ? 30 : 23, done ? PAL.green : PAL.red);
+      }
+      ctx.globalAlpha = 1;
+      if (armed) {
+        const rem = clamp((beat.tEnd - worldT) / (beat.seq.length * CFG.panicPerKey + 0.4), 0, 1);
+        ctx.fillStyle = '#161C2C'; rr(570, 396, 300, 6, 3); ctx.fill();
+        ctx.fillStyle = PAL.red; rr(570, 396, 300 * rem, 6, 3); ctx.fill();
+      }
+    }
+  }
+  if (missCoin) { ctx.globalAlpha = 0.7; drawCoin(missCoin.x, missCoin.y, 17, missCoin.x * 0.02); ctx.globalAlpha = 1; }
+
+  // rampe de lancement : pile de jetons
+  ctx.fillStyle = PAL.purpleDeep; rr(LAUNCH.x - 40, LAUNCH.y + 18, 80, 14, 7); ctx.fill();
+  drawCoin(LAUNCH.x, LAUNCH.y + 4, 15, 0);
+
+  // particules
+  for (const p of particles) { ctx.globalAlpha = p.a; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill(); }
+  ctx.globalAlpha = 1;
+
+  // textes flottants
+  for (const f of floaters) {
+    ctx.globalAlpha = Math.max(0, f.a); ctx.fillStyle = f.color;
+    ctx.font = '700 ' + f.size + 'px "Space Grotesk"'; ctx.textAlign = 'center';
+    ctx.fillText(f.text, f.x, f.y);
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore(); // fin secousse
+
+  // Actu crypto : carte en bas à droite, le jeu n'est jamais interrompu
+  if (eventCur && worldT < eventToastUntil) {
+    const age = worldT - (eventToastUntil - eventDur);
+    const a = clamp(Math.min(age / 0.25, (eventToastUntil - worldT) / 0.5), 0, 1);
+    const parts = eventCur.title.split('\u2014');
+    const when = (parts[0] || '').trim();
+    const head = (parts[1] || parts[0] || '').trim();
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.translate(0, (1 - a) * 14);
+    ctx.font = '600 15px "Space Grotesk"';
+    const cw = 400, tw = cw - 132;
+    const lns = [];
+    let cur = '';
+    for (const w of head.split(' ')) {
+      const test = cur ? cur + ' ' + w : w;
+      if (ctx.measureText(test).width > tw && cur) { lns.push(cur); cur = w; } else cur = test;
+    }
+    if (cur) lns.push(cur);
+    const ch = Math.max(104, 58 + lns.length * 20);
+    const cx0 = W - cw - 36, cy0 = 782 - ch;
+    ctx.fillStyle = '#0E121FF2'; ctx.strokeStyle = '#2A2350'; ctx.lineWidth = 1;
+    rr(cx0, cy0, cw, ch, 12); ctx.fill(); ctx.stroke();
+    const th = ch - 28, tx = cx0 + 14, ty2 = cy0 + 14;
+    ctx.save();
+    rr(tx, ty2, th, th, 8); ctx.clip();
+    ctx.fillStyle = '#161230'; ctx.fillRect(tx, ty2, th, th);
+    if (eventCur.img === 'powell' && powellImg.complete && powellImg.naturalWidth) {
+      const sc = th / Math.min(powellImg.naturalWidth, powellImg.naturalHeight);
+      const dw = powellImg.naturalWidth * sc, dh = powellImg.naturalHeight * sc;
+      ctx.filter = 'grayscale(1) contrast(1.1)';
+      ctx.drawImage(powellImg, tx + (th - dw) / 2, ty2 + (th - dh) / 2 - th * 0.06, dw, dh);
+      ctx.filter = 'none';
+    } else if (eventCur.icon) {
+      ctx.translate(tx + th / 2, ty2 + th / 2);
+      ctx.scale(th / 150, th / 150);
+      drawEventIcon(eventCur.icon, 0, 0);
+    }
+    ctx.restore();
+    const txX = tx + th + 18;
+    ctx.textAlign = 'left';
+    ctx.fillStyle = (eventCur.effect === 'panic' || eventCur.effect === 'crash') ? PAL.red : eventCur.effect === 'fomo' ? PAL.green : PAL.gold;
+    ctx.beginPath(); ctx.arc(txX + 3, cy0 + 25, 3.5, 0, 7); ctx.fill();
+    ctx.font = '500 9px "IBM Plex Mono"';
+    ctx.fillText(when, txX + 14, cy0 + 29);
+    ctx.fillStyle = PAL.text; ctx.font = '600 15px "Space Grotesk"';
+    lns.forEach((ln, i) => ctx.fillText(ln, txX, cy0 + 52 + i * 20));
+    ctx.restore();
+  }
+
+  // ---- HUD (fixe) ----
+  ctx.fillStyle = PAL.panel; ctx.fillRect(0, 0, W, 78);
+  ctx.strokeStyle = PAL.grid; ctx.beginPath(); ctx.moveTo(0, 78); ctx.lineTo(W, 78); ctx.stroke();
+  ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = PAL.text; ctx.font = '700 20px "Space Grotesk"'; ctx.fillText('INK RUSH', 36, 40);
+  ctx.fillStyle = PAL.faint; ctx.font = '500 10px "IBM Plex Mono"'; ctx.fillText('BTC/USD · 2008→2026', 36, 58);
+  // chip d'époque
+  ctx.textAlign = 'center';
+  const chip = era.label + ' · ' + mon + ' ' + year;
+  ctx.font = '500 12px "IBM Plex Mono"';
+  const cw = ctx.measureText(chip).width + 46;
+  ctx.fillStyle = '#131028'; ctx.strokeStyle = '#2A2350'; ctx.lineWidth = 1;
+  rr(W / 2 - cw / 2, 22, cw, 34, 17); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = era.bias >= 0.5 ? PAL.green : PAL.red; ctx.beginPath(); ctx.arc(W / 2 - cw / 2 + 20, 39, 4, 0, 7); ctx.fill();
+  ctx.fillStyle = '#C9CDDC'; ctx.fillText(chip, W / 2 + 8, 43);
+  // stats droite
+  ctx.textAlign = 'right'; ctx.font = '500 9px "IBM Plex Mono"'; ctx.fillStyle = PAL.faint;
+  ctx.fillText('P&L', 1150, 30); ctx.fillText('COMBO', 1270, 30); ctx.fillText('LIVES', 1396, 30);
+  ctx.font = '600 19px "IBM Plex Mono"';
+  ctx.fillStyle = pnl >= 0 ? PAL.green : PAL.red; ctx.fillText(fmt$(pnl), 1150, 56);
+  ctx.fillStyle = PAL.purpleHi; ctx.fillText('×' + combo, 1270, 56);
+  for (let i = 0; i < CFG.lives; i++) { ctx.fillStyle = i < lives ? PAL.purple : '#262C3F'; ctx.beginPath(); ctx.arc(1396 - (CFG.lives - 1 - i) * 20, 50, 6, 0, 7); ctx.fill(); }
+
+  // ---- Timeline ----
+  ctx.fillStyle = PAL.panel; ctx.fillRect(0, 800, W, 100);
+  ctx.strokeStyle = PAL.grid; ctx.beginPath(); ctx.moveTo(0, 800); ctx.lineTo(W, 800); ctx.stroke();
+  const tl = { x: 48, w: W - 96, y: 838 };
+  const prog = clamp(idx / CFG.totalCandles, 0, 1);
+  ctx.fillStyle = '#161C2C'; rr(tl.x, tl.y, tl.w, 8, 4); ctx.fill();
+  ctx.fillStyle = PAL.purple; rr(tl.x, tl.y, Math.max(8, tl.w * prog), 8, 4); ctx.fill();
+  [0.222, 0.444, 0.667, 0.889].forEach(f => {
+    ctx.save(); ctx.translate(tl.x + tl.w * f, tl.y + 4); ctx.rotate(Math.PI / 4);
+    ctx.fillStyle = '#3A4158'; ctx.fillRect(-3.5, -3.5, 7, 7); ctx.restore();
+  });
+  ctx.fillStyle = PAL.bg; ctx.strokeStyle = PAL.purpleHi; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(tl.x + tl.w * prog, tl.y + 4, 9, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.font = '500 10px "IBM Plex Mono"'; ctx.fillStyle = PAL.faint;
+  ctx.textAlign = 'left'; ctx.fillText('2008', tl.x, tl.y + 34);
+  ctx.textAlign = 'center';
+  [[0.222, '2012'], [0.444, '2016'], [0.667, '2020'], [0.889, '2024']].forEach(([f, y]) => ctx.fillText(y, tl.x + tl.w * f, tl.y + 34));
+  ctx.textAlign = 'right'; ctx.fillText('2026', tl.x + tl.w, tl.y + 34);
+}
+
+// ---- Boucle ----
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (state === 'play') update(dt);
+  render();
+  requestAnimationFrame(frame);
+}
+reset();
+requestAnimationFrame(frame);
+
+// ---- Entrées ----
+const KEYMAP = {
+  ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
+  z: 'up', w: 'up', s: 'down', q: 'left', a: 'left', d: 'right',
+};
+addEventListener('keydown', e => {
+  if (e.repeat) return;
+  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  if (KEYMAP[k]) e.preventDefault();
+  if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (err) {} }
+  if (k === 'm') { muted = !muted; return; }
+  if (k === 't') { const p = document.getElementById('tune'); p.hidden = !p.hidden; return; }
+  if (k === 'Escape' && (state === 'play' || state === 'pause')) {
+    state = state === 'play' ? 'pause' : 'play';
+    document.getElementById('pauseOverlay').hidden = state === 'play';
+    if (state === 'play') last = performance.now();
+    return;
+  }
+  if (state === 'pause' && (k === ' ' || k === 'Enter')) {
+    state = 'play'; document.getElementById('pauseOverlay').hidden = true; last = performance.now();
+    return;
+  }
+  if (state === 'start') {
+    state = 'play'; document.getElementById('startOverlay').hidden = true; last = performance.now();
+    return;
+  }
+  if ((state === 'over' || state === 'win') && k === 'r') {
+    reset(); state = 'play'; document.getElementById('endOverlay').hidden = true; last = performance.now();
+    return;
+  }
+  if (state === 'play' && KEYMAP[k]) press(KEYMAP[k]);
+});
+// Dans la page publiée, le clavier n'atteint le jeu qu'une fois la page cliquée :
+// on prend le focus au chargement, et un clic/tap démarre aussi la partie.
+window.focus();
+addEventListener('pointerdown', () => {
+  window.focus();
+  if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (err) {} }
+  if (state === 'start') { state = 'play'; document.getElementById('startOverlay').hidden = true; last = performance.now(); }
+  else if (state === 'over' || state === 'win') { reset(); state = 'play'; document.getElementById('endOverlay').hidden = true; last = performance.now(); }
+  else if (state === 'pause') { state = 'play'; document.getElementById('pauseOverlay').hidden = true; last = performance.now(); }
+});
+// filet de sécurité : tout bug s'affiche à l'écran au lieu de geler en silence
+addEventListener('error', e => {
+  let d = document.getElementById('bugbar');
+  if (!d) {
+    d = document.createElement('div'); d.id = 'bugbar';
+    d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;background:#FF4D5E;color:#fff;font:12px/1.5 monospace;padding:8px 14px;z-index:99;white-space:pre-wrap;';
+    document.body.appendChild(d);
+  }
+  d.textContent = 'BUG : ' + e.message + ' (' + (e.lineno || '?') + ') — fais une capture et envoie-la à Claude';
+});
+addEventListener('blur', () => {
+  if (state === 'play') { state = 'pause'; document.getElementById('pauseOverlay').hidden = false; }
+});
+
+// ---- Panneau de réglages ----
+const TUNERS = [
+  ['approach', 'r_approach', 'v_approach', v => v.toFixed(2) + ' s', 1],
+  ['perfect', 'r_perfect', 'v_perfect', v => Math.round(v * 1000) + ' ms', 1000],
+  ['good', 'r_good', 'v_good', v => Math.round(v * 1000) + ' ms', 1000],
+  ['beatStart', 'r_beatStart', 'v_beatStart', v => v.toFixed(1) + ' s', 1],
+  ['beatEnd', 'r_beatEnd', 'v_beatEnd', v => v.toFixed(2) + ' s', 1],
+  ['shake', 'r_shake', 'v_shake', v => '×' + v.toFixed(1), 1],
+];
+for (const [key, rid, vid, fmt, mul] of TUNERS) {
+  const r = document.getElementById(rid), v = document.getElementById(vid);
+  r.value = CFG[key] * mul; v.textContent = fmt(CFG[key]);
+  r.addEventListener('input', () => { CFG[key] = Number(r.value) / mul; v.textContent = fmt(CFG[key]); });
+}
+</script>
