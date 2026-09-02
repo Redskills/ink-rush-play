@@ -80,12 +80,12 @@
     <h2>R&Eacute;GLAGES (T)</h2>
     <button id="tuneClose" type="button" aria-label="Fermer les r&eacute;glages" title="Fermer (T ou Esc)">&times;</button>
   </div>
-  <label>vol du jeton (s) <span class="val" id="v_approach"></span></label>
-  <input type="range" id="r_approach" min="0.6" max="1.8" step="0.05">
+  <label>vol max du jeton (s) <span class="val" id="v_approach"></span></label>
+  <input type="range" id="r_approach" min="0.45" max="1.4" step="0.05">
   <label>fen&ecirc;tre perfect (ms) <span class="val" id="v_perfect"></span></label>
-  <input type="range" id="r_perfect" min="50" max="160" step="5">
+  <input type="range" id="r_perfect" min="50" max="180" step="5">
   <label>fen&ecirc;tre good (ms) <span class="val" id="v_good"></span></label>
-  <input type="range" id="r_good" min="120" max="320" step="10">
+  <input type="range" id="r_good" min="120" max="360" step="5">
   <label>&eacute;cart entre frappes, d&eacute;but (s) <span class="val" id="v_beatStart"></span></label>
   <input type="range" id="r_beatStart" min="0.8" max="2.2" step="0.05">
   <label>&eacute;cart entre frappes, fin (s) <span class="val" id="v_beatEnd"></span></label>
@@ -101,10 +101,10 @@
    Tout le réglage vit dans CFG (et dans le panneau T en jeu).
    ============================================================ */
 const CFG = {
-  approach: 0.95,    // marge de vol max du jeton (s) au-dessus de la pulsation
-  perfect: 0.09,     // fenêtre PERFECT (±s)
-  good: 0.20,        // fenêtre GOOD (±s)
-  beatStart: 1.3,    // temps entre deux frappes au début (s)
+  approach: 0.72,    // vol max du jeton (s) — au-delà, la bougie attend, touche visible
+  perfect: 0.10,     // fenêtre PERFECT (±s)
+  good: 0.225,       // fenêtre GOOD (±s)
+  beatStart: 1.15,   // temps entre deux frappes au début (s)
   beatEnd: 0.95,     // ... et à la fin
   growDur: 0.23,     // croissance du corps de bougie (s)
   gap: 0.1,          // respiration après résolution (s)
@@ -114,12 +114,12 @@ const CFG = {
   dualFromYear: 2013,
   shake: 1,
   volume: 0.5,
-  bonusWindow: 0.18, // fenêtre du jeton bonus croisé (±s)
-  panicPerKey: 0.55, // temps accordé par flèche de la séquence PANIC SELL (s)
+  bonusWindow: 0.2,  // fenêtre du jeton bonus croisé (±s)
+  panicPerKey: 0.62, // temps accordé par flèche de la séquence PANIC SELL (s)
   panicDur: 2.6,     // durée du 1er PANIC SELL, en martèlement (s)
-  panicTarget: 12,   // appuis pour le bonus du martèlement
+  panicTarget: 11,   // appuis pour le bonus du martèlement
   pumpDur: 2.2,      // durée du PUMP haussier (s)
-  pumpTarget: 12,    // appuis pour le bonus du pump
+  pumpTarget: 11,    // appuis pour le bonus du pump
 };
 
 const PAL = {
@@ -300,9 +300,11 @@ function spawnBeat() {
   // la frappe tombe sur la pulsation. La bougie et sa touche apparaissent tout de suite
   // (on voit venir), et le lancer se déclenche assez tard pour arriver pile sur le temps.
   const hitT = Math.max(nextHitAt, worldT + 0.4);
-  const flight = clamp(hitT - worldT - 0.06, 0.34, CFG.approach + 0.65);
+  // le vol reste bref : sur une note tenue, la bougie et sa touche patientent à l'écran
+  // au lieu de faire planer le jeton pendant une seconde et demie
+  const flight = clamp(hitT - worldT - 0.06, 0.34, CFG.approach);
   const tThrow = hitT - flight;
-  const amp = clamp((flight - 0.34) / 1.26, 0, 1); // note tenue = grande bougie
+  const amp = clamp((hitT - worldT - 0.34) / 1.1, 0, 1); // note tenue = grande bougie
   if (!upcoming) rollUpcoming();
   const green = upcoming.green, keys = upcoming.keys;
   upcoming = null;
@@ -323,7 +325,7 @@ function spawnBeat() {
   camTarget = Math.max(0, idx * SPACING - (ACTIVE_X - 220));
 
   beat = { c, keys, pressed: {}, tThrow, flight, hitT, resolved: false, result: null, resolveT: 0, thrown: false, bonus: null,
-    frenzy, pw: CFG.perfect * (frenzy ? 0.8 : 1), gw: CFG.good * (frenzy ? 0.8 : 1) };
+    frenzy, pw: CFG.perfect * (frenzy ? 0.85 : 1), gw: CFG.good * (frenzy ? 0.85 : 1) };
   // jeton ₿ croisé en route : bonus si on presse sa touche au passage, aucune pénalité si ignoré
   const bonusChance = airdropLeft > 0 ? 1 : (year >= 2011 ? Math.min(0.5, 0.15 + (year - 2011) * 0.03) : 0);
   if (airdropLeft > 0) airdropLeft--;
@@ -343,6 +345,7 @@ function spawnBeat() {
   greenStreak = c.green ? greenStreak + 1 : 0;
   if (!frenzy && greenStreak >= 4 && worldT >= frenzyCooldown && Math.random() < 0.3) startFrenzy();
   idx++;
+  rollUpcoming(); // la note d'après est annoncée tout de suite, en fantôme
 }
 
 // ---- Jugement ----
@@ -368,7 +371,6 @@ function resolve(result, label, color) {
   if (idx >= CFG.totalCandles) return gameEnd(true);
   // cadence : l'époque donne le tempo (bull run rapide, marché calme plus lent)
   nextHitAt = beat.hitT + nextStep();
-  rollUpcoming(); // on annonce déjà la note d'après
   nextSpawnAt = worldT + 0.03; // la bougie suivante naît tout de suite : on la voit venir
 }
 
@@ -711,7 +713,8 @@ function render() {
     if (ys < 90 || ys > 782) continue;
     ctx.strokeStyle = PAL.grid; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(0, ys); ctx.lineTo(W, ys); ctx.stroke();
-    ctx.fillStyle = PAL.faint; ctx.fillText(fmtPrice(priceAt(wy)), 1424, ys - 6);
+    const pr = priceAt(wy);
+    if (pr > 0) { ctx.fillStyle = PAL.faint; ctx.fillText(fmtPrice(pr), 1424, ys - 6); }
   }
   ctx.textAlign = 'left';
 
@@ -762,15 +765,6 @@ function render() {
       if (beat.pressed[k] !== undefined) { ctx.fillStyle = PAL.green; ctx.beginPath(); ctx.arc(kx + 20, ky - 20, 5, 0, 7); ctx.fill(); }
     });
     if (coin) drawCoin(coin.x, coin.y, 17, coin.rot);
-    // aperçu de la note suivante, en fantôme sur l'emplacement d'après
-    if (upcoming) {
-      const nx = 220 + idx * SPACING - cam, ny = clamp(sy(level) + (upcoming.green ? -76 : 76), 96, 720);
-      ctx.globalAlpha = 0.28;
-      ctx.strokeStyle = PAL.line; ctx.lineWidth = 1.5; ctx.setLineDash([4, 6]);
-      ctx.beginPath(); ctx.moveTo(nx, sy(level)); ctx.lineTo(nx, ny); ctx.stroke(); ctx.setLineDash([]);
-      upcoming.keys.forEach((k, i) => keycap(nx + i * 40, ny, k, false, 15));
-      ctx.globalAlpha = 1;
-    }
   }
   // jeton ₿ bonus : visible dès la naissance de la bougie, posé juste avant la cible
   if (beat && !beat.resolved && beat.c && beat.bonus && !beat.bonus.done) {
@@ -877,6 +871,17 @@ function render() {
   // rampe de lancement : pile de jetons
   ctx.fillStyle = PAL.purpleDeep; rr(LAUNCH.x - 40, LAUNCH.y + 18, 80, 14, 7); ctx.fill();
   drawCoin(LAUNCH.x, LAUNCH.y + 4, 15, 0);
+  // la note suivante s'annonce ici, toujours au même endroit : on la voit venir de loin
+  if (state === 'play' && upcoming && beat && !beat.resolved && beat.c) {
+    ctx.globalAlpha = 0.42;
+    ctx.font = '500 9px "IBM Plex Mono"'; ctx.textAlign = 'center';
+    ctx.fillStyle = PAL.muted; ctx.fillText('SUIVANT', LAUNCH.x, LAUNCH.y - 108);
+    ctx.fillStyle = upcoming.green ? PAL.green : PAL.red;
+    ctx.beginPath(); ctx.arc(LAUNCH.x - 44, LAUNCH.y - 111, 3.5, 0, 7); ctx.fill();
+    const n = upcoming.keys.length, x0 = LAUNCH.x - (n - 1) * 21;
+    upcoming.keys.forEach((k, i) => keycap(x0 + i * 42, LAUNCH.y - 74, k, false, 17));
+    ctx.globalAlpha = 1;
+  }
 
   // particules
   for (const p of particles) { ctx.globalAlpha = p.a; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill(); }
