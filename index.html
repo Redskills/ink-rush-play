@@ -105,7 +105,7 @@ const CFG = {
   perfect: 0.09,     // fenêtre PERFECT (±s)
   good: 0.20,        // fenêtre GOOD (±s)
   beatStart: 1.3,    // temps entre deux frappes au début (s)
-  beatEnd: 0.8,      // ... et à la fin
+  beatEnd: 0.95,     // ... et à la fin
   growDur: 0.23,     // croissance du corps de bougie (s)
   gap: 0.1,          // respiration après résolution (s)
   lives: 3,
@@ -219,7 +219,7 @@ const sfx = {
 let state = 'start'; // start | play | pause | over | win
 let worldT = 0, hitstop = 0, shake = 0;
 let candles, beat, coin, missCoin, particles, floaters;
-let idx, level, pnl, combo, bestCombo, lives, cam, camTarget, camY, camYSpeed, yearFx, lastEraLabel, lastWasPanic, frenzyUntil, frenzyCooldown, greenStreak, panicN, tempoDrift, eventIdx, eventDur, eventToastUntil, eventCur, airdropLeft, crashLeft, panicCooldown, redDropped;
+let idx, level, pnl, combo, bestCombo, lives, cam, camTarget, camY, camYSpeed, yearFx, lastEraLabel, lastWasPanic, frenzyUntil, frenzyCooldown, greenStreak, panicN, tempoDrift, eventIdx, eventDur, eventToastUntil, eventCur, airdropLeft, crashLeft, panicCooldown, cascade;
 let best = 0;
 try { best = Number(localStorage.getItem('inkrush-best') || 0); } catch (e) {}
 if (matchMedia('(prefers-reduced-motion: reduce)').matches) CFG.shake = 0;
@@ -234,7 +234,7 @@ function reset() {
   frenzyUntil = -1;
   frenzyCooldown = 0;
   panicCooldown = -99;
-  redDropped = 0;
+  cascade = 0;
   greenStreak = 0;
   panicN = 0;
   tempoDrift = 1;
@@ -246,12 +246,27 @@ function reset() {
   crashLeft = 0;
   nextSpawnAt = 0.5;
   nextHitAt = 1.8;
+  upcoming = null;
 }
-let nextSpawnAt = 0, nextHitAt = 0;
+let nextSpawnAt = 0, nextHitAt = 0, upcoming = null;
+// la note suivante est décidée à l'avance : on l'affiche en fantôme, on la voit venir
+function rollUpcoming() {
+  const year = yearOf(idx), era = eraOf(year), frenzy = worldT < frenzyUntil;
+  const green = Math.random() < (frenzy ? 0.95 : era.bias);
+  const dualChance = (year >= CFG.dualFromYear ? clamp(0.08 + (year - CFG.dualFromYear) * 0.03, 0, 0.38) : 0) + (frenzy ? 0.2 : 0);
+  const dirs = green ? ['up', 'up', 'left', 'right'] : ['down', 'down', 'left', 'right'];
+  let keys = [dirs[Math.floor(Math.random() * dirs.length)]];
+  if (Math.random() < dualChance) {
+    const pairs = [['up', 'right'], ['up', 'left'], ['down', 'right'], ['down', 'left']]; // jamais deux opposées
+    keys = pairs[Math.floor(Math.random() * pairs.length)];
+  }
+  upcoming = { green, keys };
+}
+
 // la pulsation : des mesures simples plutôt que du hasard, pour que le rythme se sente
 const PATTERNS = [1, 1, 1, 1, 0.62, 0.62, 1.45];
-const hitInterval = () => clamp(lerp(CFG.beatStart, CFG.beatEnd, idx / CFG.totalCandles) * eraOf(yearOf(idx)).pace * tempoDrift, 0.5, 1.8);
-const nextStep = () => clamp(hitInterval() * PATTERNS[Math.floor(Math.random() * PATTERNS.length)] * (worldT < frenzyUntil ? 0.62 : 1), 0.5, 2.2);
+const hitInterval = () => clamp(lerp(CFG.beatStart, CFG.beatEnd, idx / CFG.totalCandles) * eraOf(yearOf(idx)).pace * tempoDrift, 0.62, 1.9);
+const nextStep = () => clamp(hitInterval() * PATTERNS[Math.floor(Math.random() * PATTERNS.length)] * (worldT < frenzyUntil ? 0.62 : 1), 0.42, 2.2);
 
 const yearOf = i => 2008 + i / 3.6;
 const eraOf = y => { let e = ERAS[0]; for (const it of ERAS) if (y >= it.from) e = it; return e; };
@@ -273,7 +288,7 @@ function spawnBeat() {
       // deux paniques coup sur coup, c'est lourd : la seconde devient une chute simple
       if (worldT < panicCooldown) crashLeft = 5; else return spawnPanic(year);
     }
-    if (eventCur.effect === 'crash') { sfx.alarm(); crashLeft = 5; redDropped = 0; } // chute automatique, sans mini-jeu
+    if (eventCur.effect === 'crash') { sfx.alarm(); crashLeft = 5; cascade = 0; } // chute automatique, sans mini-jeu
     if (eventCur.effect === 'fomo') { sfx.frenzy(); startFrenzy(); }
     if (eventCur.effect === 'airdrop') { sfx.frenzy(); airdropLeft = 3; } // pizza day : 3 jetons ₿ garantis
   }
@@ -284,18 +299,18 @@ function spawnBeat() {
   const frenzy = worldT < frenzyUntil;
   // la frappe tombe sur la pulsation. La bougie et sa touche apparaissent tout de suite
   // (on voit venir), et le lancer se déclenche assez tard pour arriver pile sur le temps.
-  const hitT = Math.max(nextHitAt, worldT + 0.62);
-  const flight = clamp(hitT - worldT - 0.14, 0.45, CFG.approach + 0.65);
+  const hitT = Math.max(nextHitAt, worldT + 0.4);
+  const flight = clamp(hitT - worldT - 0.06, 0.34, CFG.approach + 0.65);
   const tThrow = hitT - flight;
-  const amp = clamp((flight - 0.45) / 1.15, 0, 1); // note tenue = grande bougie
-  let green = Math.random() < (frenzy ? 0.95 : era.bias);
-  const body = lerp(40, 116, amp) * era.vol * (frenzy ? 1.25 : 1) + 26;
-  const wick = lerp(22, 56, amp) * era.vol + 12;
-  // random walk borné : si l'extrême sort du graphique, on inverse la direction
-  // bornes très larges : la caméra suit, la courbe peut vraiment grimper sur 18 ans
-  if (green && level - body - wick < -9000) green = false;
-  if (!green && level + body + wick > 820) green = true;
-  const extreme = green ? level - body - wick : level + body + wick;
+  const amp = clamp((flight - 0.34) / 1.26, 0, 1); // note tenue = grande bougie
+  if (!upcoming) rollUpcoming();
+  const green = upcoming.green, keys = upcoming.keys;
+  upcoming = null;
+  let body = lerp(40, 116, amp) * era.vol * (frenzy ? 1.25 : 1) + 26;
+  let wick = lerp(22, 56, amp) * era.vol + 12;
+  // on ne dément jamais la couleur annoncée : si ça sort du cadre, on raccourcit la bougie
+  const room = green ? level + 9000 : 820 - level;
+  if (body + wick > room) { const k = Math.max(0.2, room / (body + wick)); body *= k; wick *= k; }
   const c = {
     slot: idx, green, body, wick,
     top: green ? level - body : level, bot: green ? level : level + body,
@@ -307,14 +322,6 @@ function spawnBeat() {
   if (candles.length > 16) candles.shift();
   camTarget = Math.max(0, idx * SPACING - (ACTIVE_X - 220));
 
-  // touches demandées
-  const dualChance = (year >= CFG.dualFromYear ? clamp(0.08 + (year - CFG.dualFromYear) * 0.03, 0, 0.38) : 0) + (frenzy ? 0.2 : 0);
-  const dirs = green ? ['up', 'up', 'left', 'right'] : ['down', 'down', 'left', 'right'];
-  let keys = [dirs[Math.floor(Math.random() * dirs.length)]];
-  if (Math.random() < dualChance) {
-    const pairs = [['up', 'right'], ['up', 'left'], ['down', 'right'], ['down', 'left']]; // jamais deux opposées
-    keys = pairs[Math.floor(Math.random() * pairs.length)];
-  }
   beat = { c, keys, pressed: {}, tThrow, flight, hitT, resolved: false, result: null, resolveT: 0, thrown: false, bonus: null,
     frenzy, pw: CFG.perfect * (frenzy ? 0.8 : 1), gw: CFG.good * (frenzy ? 0.8 : 1) };
   // jeton ₿ croisé en route : bonus si on presse sa touche au passage, aucune pénalité si ignoré
@@ -329,7 +336,7 @@ function spawnBeat() {
   if (yr !== yearFx.year) yearFx = { year: yr, t: 0 };
   if (era.label !== lastEraLabel) { // annonce du changement d'époque
     lastEraLabel = era.label;
-    addFloater(era.label, 720, 330, era.bias >= 0.5 ? PAL.green : PAL.red, 42);
+    addFloater(era.label, 720, 640, era.bias >= 0.5 ? PAL.green : PAL.red, 40);
     beep(era.bias >= 0.5 ? 660 : 240, 0.14, 'triangle', 0.14);
   }
   // FOMO RUSH : rare, et seulement porté par une vraie série de bougies vertes
@@ -361,20 +368,20 @@ function resolve(result, label, color) {
   if (idx >= CFG.totalCandles) return gameEnd(true);
   // cadence : l'époque donne le tempo (bull run rapide, marché calme plus lent)
   nextHitAt = beat.hitT + nextStep();
-  nextSpawnAt = worldT + 0.1; // la bougie suivante naît tout de suite : on la voit venir
+  rollUpcoming(); // on annonce déjà la note d'après
+  nextSpawnAt = worldT + 0.03; // la bougie suivante naît tout de suite : on la voit venir
 }
 
 function startFrenzy() {
   frenzyUntil = worldT + CFG.frenzyDur;
   frenzyCooldown = worldT + 50; // rare : long temps mort après chaque rush
   greenStreak = 0;
-  addFloater('FOMO RUSH  ×3', 720, 390, PAL.gold, 46);
   sfx.frenzy();
 }
 
 function dropRedCandle() { // chaque avancée du panic fait tomber une vraie bougie rouge
-  if (idx >= CFG.totalCandles - 1 || redDropped >= 6) return; // la cascade ne dévore pas la frise
-  redDropped++;
+  if (idx >= CFG.totalCandles - 1 || cascade >= 6) return; // la cascade ne dévore pas la frise
+  cascade++;
   const h = rand(40, 85), w = rand(10, 26);
   const bot = Math.min(880, level + h);
   const c = { slot: idx, green: false, top: level, bot, body: bot - level, wick: w, grow: 1, wickProg: 1, done: true, missed: false, panic: true, extremeY: bot + w };
@@ -389,7 +396,8 @@ function dropRedCandle() { // chaque avancée du panic fait tomber une vraie bou
 }
 
 function riseGreenCandle() { // le pump fait monter de vraies bougies vertes
-  if (idx >= CFG.totalCandles - 1) return;
+  if (idx >= CFG.totalCandles - 1 || cascade >= 6) return; // même plafond que la chute
+  cascade++;
   const h = rand(40, 85), w = rand(10, 26);
   const top = Math.max(-9200, level - h);
   const c = { slot: idx, green: true, top, bot: level, body: level - top, wick: w, grow: 1, wickProg: 1, done: true, missed: false, panic: true, extremeY: top - w };
@@ -404,6 +412,7 @@ function riseGreenCandle() { // le pump fait monter de vraies bougies vertes
 }
 
 function spawnPump() {
+  cascade = 0;
   beat = { type: 'pump', tStart: worldT + 0.6, tEnd: worldT + 0.6 + CFG.pumpDur, count: 0, resolved: false };
   sfx.frenzy();
   lastWasPanic = true;
@@ -415,7 +424,7 @@ function pumpPress(dir) {
   pnl += Math.round((40 + beat.count * 14) * (1 + combo * 0.05)); // chaque appui vaut plus que le précédent
   shake = Math.max(shake, 2.5 * CFG.shake);
   beep(Math.min(1100, 320 + beat.count * 34), 0.05, 'triangle', 0.16);
-  riseGreenCandle(); // chaque appui fait monter la courbe
+  if (beat.count % 2 === 0) riseGreenCandle(); // la courbe monte, sans avaler la frise
 }
 
 function resolvePump() {
@@ -439,7 +448,7 @@ function spawnPanic(year) {
   greenStreak = 0;
   panicN++;
   panicCooldown = worldT + 45;
-  redDropped = 0;
+  cascade = 0;
   if (panicN === 1) { // le premier : martèlement, comme au bon vieux temps
     beat = { type: 'panic', mode: 'mash', tStart: worldT + 0.7, tEnd: worldT + 0.7 + CFG.panicDur, count: 0, wrongAt: -9, resolved: false };
   } else { // les suivants : séquence de flèches à enchaîner dans l'ordre
@@ -687,7 +696,7 @@ function render() {
   ctx.globalAlpha = 0.05 * easeOutCubic(yearFx.t);
   ctx.fillStyle = PAL.text; ctx.font = '700 330px "Space Grotesk"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(String(yearFx.year), 1100, 430 + (1 - easeOutCubic(yearFx.t)) * 30);
+  ctx.fillText(String(yearFx.year), 980, 430 + (1 - easeOutCubic(yearFx.t)) * 30);
   ctx.restore();
 
   // secousse : seulement le monde (pas le HUD)
@@ -730,7 +739,7 @@ function render() {
     rr(x - BODY_W / 2, by, BODY_W, Math.max(4, bh), 3); ctx.fill();
     if (isActive) { ctx.strokeStyle = c.green ? PAL.greenHi : '#FFB3BA'; ctx.lineWidth = 1.5; rr(x - BODY_W / 2, by, BODY_W, Math.max(4, bh), 3); ctx.stroke(); }
     ctx.globalAlpha = 1;
-    if (c.done && !c.panic) drawCoin(x, sy(c.extremeY), 15, 0);
+    if (c.done && !c.panic) { ctx.globalAlpha = 0.45; drawCoin(x, sy(c.extremeY), 13, 0); ctx.globalAlpha = 1; }
   }
 
   // beat actif : anneau + jeton + touches
@@ -753,6 +762,15 @@ function render() {
       if (beat.pressed[k] !== undefined) { ctx.fillStyle = PAL.green; ctx.beginPath(); ctx.arc(kx + 20, ky - 20, 5, 0, 7); ctx.fill(); }
     });
     if (coin) drawCoin(coin.x, coin.y, 17, coin.rot);
+    // aperçu de la note suivante, en fantôme sur l'emplacement d'après
+    if (upcoming) {
+      const nx = 220 + idx * SPACING - cam, ny = clamp(sy(level) + (upcoming.green ? -76 : 76), 96, 720);
+      ctx.globalAlpha = 0.28;
+      ctx.strokeStyle = PAL.line; ctx.lineWidth = 1.5; ctx.setLineDash([4, 6]);
+      ctx.beginPath(); ctx.moveTo(nx, sy(level)); ctx.lineTo(nx, ny); ctx.stroke(); ctx.setLineDash([]);
+      upcoming.keys.forEach((k, i) => keycap(nx + i * 40, ny, k, false, 15));
+      ctx.globalAlpha = 1;
+    }
   }
   // jeton ₿ bonus : visible dès la naissance de la bougie, posé juste avant la cible
   if (beat && !beat.resolved && beat.c && beat.bonus && !beat.bonus.done) {
