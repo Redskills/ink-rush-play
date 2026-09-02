@@ -29,7 +29,15 @@
     background: #0C1019F2; border: 1px solid #2A2350; border-radius: 12px; padding: 16px;
     color: #C9CDDC; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px;
   }
-  #tune h2 { font-size: 11px; letter-spacing: 2px; color: #A895FF; margin: 0 0 12px 0; }
+  #tune .head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+  #tune h2 { font-size: 11px; letter-spacing: 2px; color: #A895FF; margin: 0; }
+  #tuneClose {
+    width: 28px; height: 28px; flex: none; cursor: pointer;
+    background: #161230; border: 1px solid #2A2350; border-radius: 8px;
+    color: #A895FF; font: 600 15px/1 'IBM Plex Mono', monospace;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #tuneClose:hover { background: #221B45; color: #E8EAF2; }
   #tune label { display: block; margin: 10px 0 2px 0; letter-spacing: 1px; color: #6B7390; }
   #tune input[type=range] { width: 100%; accent-color: #7C5CFF; }
   #tune .val { color: #E8EAF2; float: right; }
@@ -68,7 +76,10 @@
 </div>
 
 <div id="tune" hidden>
-  <h2>R&Eacute;GLAGES (T)</h2>
+  <div class="head">
+    <h2>R&Eacute;GLAGES (T)</h2>
+    <button id="tuneClose" type="button" aria-label="Fermer les r&eacute;glages" title="Fermer (T ou Esc)">&times;</button>
+  </div>
   <label>vol du jeton (s) <span class="val" id="v_approach"></span></label>
   <input type="range" id="r_approach" min="0.6" max="1.8" step="0.05">
   <label>fen&ecirc;tre perfect (ms) <span class="val" id="v_perfect"></span></label>
@@ -962,7 +973,8 @@ addEventListener('keydown', e => {
   if (KEYMAP[k]) e.preventDefault();
   if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (err) {} }
   if (k === 'm') { muted = !muted; return; }
-  if (k === 't') { const p = document.getElementById('tune'); p.hidden = !p.hidden; return; }
+  if (k === 't') { toggleTune(); return; }
+  if (k === 'Escape' && !document.getElementById('tune').hidden) { toggleTune(false); return; }
   if (k === 'Escape' && (state === 'play' || state === 'pause')) {
     state = state === 'play' ? 'pause' : 'play';
     document.getElementById('pauseOverlay').hidden = state === 'play';
@@ -1008,6 +1020,16 @@ addEventListener('blur', () => {
 });
 
 // ---- Panneau de réglages ----
+function toggleTune(force) {
+  const panel = document.getElementById('tune');
+  panel.hidden = force === undefined ? !panel.hidden : !force;
+  // le clavier doit revenir au jeu, sinon les flèches pilotent un slider
+  if (panel.hidden && document.activeElement && document.activeElement.blur) document.activeElement.blur();
+}
+document.getElementById('tuneClose').addEventListener('click', e => { e.stopPropagation(); toggleTune(false); });
+// cliquer dans le panneau ne doit pas lancer ni relancer la partie
+document.getElementById('tune').addEventListener('pointerdown', e => e.stopPropagation());
+
 const TUNERS = [
   ['approach', 'r_approach', 'v_approach', v => v.toFixed(2) + ' s', 1],
   ['perfect', 'r_perfect', 'v_perfect', v => Math.round(v * 1000) + ' ms', 1000],
