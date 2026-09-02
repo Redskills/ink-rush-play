@@ -21,6 +21,16 @@
     display: flex; align-items: center; justify-content: center; font-size: 20px; color: #A895FF;
   }
   .overlay .go { font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; letter-spacing: 2px; color: #00D68F; margin-top: 26px; }
+  .levels { display: flex; gap: 12px; justify-content: center; margin: 26px 0 4px 0; }
+  .levels button {
+    flex: 1; max-width: 200px; cursor: pointer; padding: 14px 18px; text-align: left;
+    background: #10131F; border: 1px solid #2A2350; border-radius: 12px; color: #C9CDDC;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  .levels button:hover { border-color: #7C5CFF; background: #161230; }
+  .levels button b { display: block; font-size: 15px; letter-spacing: 1px; color: #E8EAF2; margin-bottom: 3px; }
+  .levels button span { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #6B7390; }
+  .levels button .k { float: right; color: #A895FF; font-size: 11px; }
   .overlay .small { font-size: 12px; color: #6B7390; }
   .overlay .stat { font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 15px; margin: 4px 0; }
   .overlay .stat b { color: #00D68F; font-weight: 600; }
@@ -56,7 +66,11 @@
     <p class="small" style="color: #FFC93C;">Jeton &#8383; crois&eacute; en vol&nbsp;: appuie sur sa touche au passage &rarr; bonus.</p>
     <p class="small" style="color: #FF4D5E;">Et quand &ccedil;a hurle PANIC SELL&nbsp;: encha&icirc;ne la s&eacute;quence de fl&egrave;ches dans l&rsquo;ordre.</p>
     <p class="small">Fl&egrave;ches ou ZQSD &middot; parfois deux touches en m&ecirc;me temps &middot; 3 vies<br>Esc pause &middot; M son &middot; T r&eacute;glages &middot; clavier requis</p>
-    <div class="go">CLIQUE OU APPUIE SUR UNE TOUCHE POUR COMMENCER</div>
+    <div class="levels">
+      <button id="lvNormal" type="button"><b>NORMAL <span class="k">1</span></b><span>plus de temps &agrave; chaque frappe</span></button>
+      <button id="lvHard" type="button"><b>DIFFICILE <span class="k">2</span></b><span>plus rapide, fen&ecirc;tres serr&eacute;es</span></button>
+    </div>
+    <div class="go">CHOISIS TON NIVEAU</div>
   </div>
 </div>
 
@@ -67,7 +81,7 @@
     <div class="stat">P&amp;L final&nbsp;: <b id="endPnl"></b></div>
     <div class="stat">Meilleur combo&nbsp;: <b id="endCombo"></b></div>
     <div class="stat">Record&nbsp;: <b id="endBest"></b></div>
-    <div class="go">R OU CLIC &mdash; RECOMMENCER</div>
+    <div class="go">R OU CLIC &mdash; REJOUER &middot; 1 NORMAL &middot; 2 DIFFICILE</div>
   </div>
 </div>
 
@@ -121,6 +135,32 @@ const CFG = {
   pumpDur: 2.2,      // durée du PUMP haussier (s)
   pumpTarget: 11,    // appuis pour le bonus du pump
 };
+
+// Deux niveaux : les réglages de référence sont multipliés au démarrage d'une partie.
+const BASE = Object.assign({}, CFG);
+const LEVELS = {
+  normal:    { label: 'NORMAL',    beat: 1.16, flight: 1.14, win: 1.18, panic: 1.15 },
+  difficile: { label: 'DIFFICILE', beat: 0.94, flight: 0.96, win: 1.0,  panic: 1.0 },
+};
+let levelKey = 'normal';
+try { levelKey = localStorage.getItem('inkrush-level') || 'normal'; } catch (e) {}
+if (!LEVELS[levelKey]) levelKey = 'normal';
+let L = LEVELS[levelKey];
+function applyLevel(key) {
+  levelKey = LEVELS[key] ? key : 'normal';
+  L = LEVELS[levelKey];
+  try { localStorage.setItem('inkrush-level', levelKey); } catch (e) {}
+  CFG.beatStart = BASE.beatStart * L.beat;
+  CFG.beatEnd = BASE.beatEnd * L.beat;
+  CFG.approach = BASE.approach * L.flight;
+  CFG.perfect = BASE.perfect * L.win;
+  CFG.good = BASE.good * L.win;
+  CFG.bonusWindow = BASE.bonusWindow * L.win;
+  CFG.panicPerKey = BASE.panicPerKey * L.panic;
+  CFG.panicDur = BASE.panicDur * L.panic;
+  CFG.pumpDur = BASE.pumpDur * L.panic;
+  syncTuners();
+}
 
 const PAL = {
   bg: '#0A0D16', panel: '#0C1019', grid: '#171D2E', line: '#2A3145',
@@ -225,7 +265,9 @@ let worldT = 0, hitstop = 0, shake = 0;
 let candles, beat, coin, missCoin, particles, floaters;
 let idx, level, pnl, combo, bestCombo, lives, cam, camTarget, camY, camYSpeed, yearFx, lastEraLabel, lastWasPanic, frenzyUntil, frenzyCooldown, greenStreak, panicN, tempoDrift, eventIdx, eventDur, eventToastUntil, eventCur, airdropLeft, crashLeft, panicCooldown, cascade;
 let best = 0;
-try { best = Number(localStorage.getItem('inkrush-best') || 0); } catch (e) {}
+const bestKey = () => 'inkrush-best-' + levelKey;
+function loadBest() { try { best = Number(localStorage.getItem(bestKey()) || 0); } catch (e) { best = 0; } }
+loadBest();
 if (matchMedia('(prefers-reduced-motion: reduce)').matches) CFG.shake = 0;
 
 function reset() {
@@ -269,8 +311,8 @@ function rollUpcoming() {
 
 // la pulsation : des mesures simples plutôt que du hasard, pour que le rythme se sente
 const PATTERNS = [1, 1, 1, 1, 0.62, 0.62, 1.45];
-const hitInterval = () => clamp(lerp(CFG.beatStart, CFG.beatEnd, idx / CFG.totalCandles) * eraOf(yearOf(idx)).pace * tempoDrift, 0.62, 1.9);
-const nextStep = () => clamp(hitInterval() * PATTERNS[Math.floor(Math.random() * PATTERNS.length)] * (worldT < frenzyUntil ? 0.62 : 1), 0.42, 2.2);
+const hitInterval = () => clamp(lerp(CFG.beatStart, CFG.beatEnd, idx / CFG.totalCandles) * eraOf(yearOf(idx)).pace * tempoDrift, 0.62 * L.beat, 1.9 * L.beat);
+const nextStep = () => clamp(hitInterval() * PATTERNS[Math.floor(Math.random() * PATTERNS.length)] * (worldT < frenzyUntil ? 0.62 : 1), 0.42 * L.beat, 2.2 * L.beat);
 
 const yearOf = i => 2008 + i / 3.6;
 const eraOf = y => { let e = ERAS[0]; for (const it of ERAS) if (y >= it.from) e = it; return e; };
@@ -553,10 +595,10 @@ function gameEnd(won) {
   state = won ? 'win' : 'over';
   if (won) sfx.win(); else sfx.over();
   best = Math.max(best, pnl);
-  try { localStorage.setItem('inkrush-best', String(best)); } catch (e) {}
+  try { localStorage.setItem(bestKey(), String(best)); } catch (e) {}
   document.getElementById('endTitle').textContent = won ? 'TO THE MOON' : 'REKT';
   document.getElementById('endTitle').style.color = won ? PAL.green : PAL.red;
-  document.getElementById('endSub').textContent = won ? '2008 → 2026 · RUN COMPLET' : 'ANNÉE ATTEINTE : ' + Math.floor(yearOf(Math.max(0, idx - 1)));
+  document.getElementById('endSub').textContent = L.label + ' · ' + (won ? '2008 → 2026 · RUN COMPLET' : 'ANNÉE ATTEINTE : ' + Math.floor(yearOf(Math.max(0, idx - 1))));
   document.getElementById('endPnl').textContent = fmt$(pnl);
   document.getElementById('endCombo').textContent = '×' + bestCombo;
   document.getElementById('endBest').textContent = fmt$(best);
@@ -956,7 +998,7 @@ function render() {
   ctx.textBaseline = 'alphabetic';
   ctx.textAlign = 'left';
   ctx.fillStyle = PAL.text; ctx.font = '700 20px "Space Grotesk"'; ctx.fillText('INK RUSH', 36, 40);
-  ctx.fillStyle = PAL.faint; ctx.font = '500 10px "IBM Plex Mono"'; ctx.fillText('BTC/USD · 2008→2026', 36, 58);
+  ctx.fillStyle = PAL.faint; ctx.font = '500 10px "IBM Plex Mono"'; ctx.fillText('BTC/USD · 2008→2026 · ' + L.label, 36, 58);
   // chip d'époque
   ctx.textAlign = 'center';
   const chip = era.label + ' · ' + mon + ' ' + year;
@@ -1028,13 +1070,9 @@ addEventListener('keydown', e => {
     state = 'play'; document.getElementById('pauseOverlay').hidden = true; last = performance.now();
     return;
   }
-  if (state === 'start') {
-    state = 'play'; document.getElementById('startOverlay').hidden = true; last = performance.now();
-    return;
-  }
-  if ((state === 'over' || state === 'win') && k === 'r') {
-    reset(); state = 'play'; document.getElementById('endOverlay').hidden = true; last = performance.now();
-    return;
+  if (state === 'start') { startGame(k === '2' ? 'difficile' : k === '1' ? 'normal' : levelKey); return; }
+  if (state === 'over' || state === 'win') {
+    if (k === 'r' || k === '1' || k === '2') { startGame(k === '2' ? 'difficile' : k === '1' ? 'normal' : levelKey); return; }
   }
   if (state === 'play' && KEYMAP[k]) press(KEYMAP[k]);
 });
@@ -1044,8 +1082,7 @@ window.focus();
 addEventListener('pointerdown', () => {
   window.focus();
   if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (err) {} }
-  if (state === 'start') { state = 'play'; document.getElementById('startOverlay').hidden = true; last = performance.now(); }
-  else if (state === 'over' || state === 'win') { reset(); state = 'play'; document.getElementById('endOverlay').hidden = true; last = performance.now(); }
+  if (state === 'start' || state === 'over' || state === 'win') startGame(levelKey);
   else if (state === 'pause') { state = 'play'; document.getElementById('pauseOverlay').hidden = true; last = performance.now(); }
 });
 // filet de sécurité : tout bug s'affiche à l'écran au lieu de geler en silence
@@ -1061,6 +1098,18 @@ addEventListener('error', e => {
 addEventListener('blur', () => {
   if (state === 'play') { state = 'pause'; document.getElementById('pauseOverlay').hidden = false; }
 });
+
+function startGame(key) {
+  applyLevel(key);
+  loadBest();
+  reset();
+  state = 'play';
+  document.getElementById('startOverlay').hidden = true;
+  document.getElementById('endOverlay').hidden = true;
+  last = performance.now();
+}
+document.getElementById('lvNormal').addEventListener('click', e => { e.stopPropagation(); startGame('normal'); });
+document.getElementById('lvHard').addEventListener('click', e => { e.stopPropagation(); startGame('difficile'); });
 
 // ---- Panneau de réglages ----
 function toggleTune(force) {
@@ -1081,9 +1130,17 @@ const TUNERS = [
   ['beatEnd', 'r_beatEnd', 'v_beatEnd', v => v.toFixed(2) + ' s', 1],
   ['shake', 'r_shake', 'v_shake', v => '×' + v.toFixed(1), 1],
 ];
+// les curseurs reflètent le niveau choisi, et restent modifiables par-dessus
+function syncTuners() {
+  for (const [key, rid, vid, fmt, mul] of TUNERS) {
+    const r = document.getElementById(rid), v = document.getElementById(vid);
+    if (!r) continue;
+    r.value = CFG[key] * mul; v.textContent = fmt(CFG[key]);
+  }
+}
 for (const [key, rid, vid, fmt, mul] of TUNERS) {
   const r = document.getElementById(rid), v = document.getElementById(vid);
-  r.value = CFG[key] * mul; v.textContent = fmt(CFG[key]);
   r.addEventListener('input', () => { CFG[key] = Number(r.value) / mul; v.textContent = fmt(CFG[key]); });
 }
+applyLevel(levelKey); // le niveau mémorisé est appliqué dès l'ouverture
 </script>
