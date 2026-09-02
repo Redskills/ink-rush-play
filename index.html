@@ -148,7 +148,7 @@ const CFG = {
   gap: 0.1,          // respiration après résolution (s)
   lives: 3,
   totalCandles: 65,  // 18 ans × 3.6 bougies/an (+20 %)
-  frenzyDur: 7,      // durée du FOMO RUSH (s)
+  frenzyDur: 5,      // durée du FOMO RUSH (s)
   dualFromYear: 2013,
   shake: 1,
   volume: 0.5,
@@ -200,21 +200,21 @@ const PAL = {
 
 // pace : multiplicateur de tempo de l'époque (0.7 = frénétique, 1.2 = calme)
 const ERAS = [
-  { from: 2008, label: 'GENESIS',        bias: 0.55, vol: 0.45, pace: 1.05 },
-  { from: 2010, label: 'EARLY DAYS',     bias: 0.60, vol: 0.55, pace: 1.00 },
-  { from: 2013, label: 'FIRST BUBBLE',   bias: 0.72, vol: 0.85, pace: 0.75 },
-  { from: 2014, label: 'THE CRASH',      bias: 0.30, vol: 0.80, pace: 0.85 },
-  { from: 2016, label: 'RECOVERY',       bias: 0.62, vol: 0.65, pace: 0.90 },
-  { from: 2017, label: 'BULL RUN',       bias: 0.78, vol: 1.00, pace: 0.68 },
-  { from: 2018, label: 'CRYPTO WINTER',  bias: 0.28, vol: 0.85, pace: 0.90 },
-  { from: 2019, label: 'SIDEWAYS',       bias: 0.52, vol: 0.60, pace: 1.00 },
-  { from: 2020, label: 'HALVING III',    bias: 0.68, vol: 0.85, pace: 0.80 },
-  { from: 2021, label: 'ALL-TIME HIGH',  bias: 0.78, vol: 1.10, pace: 0.65 },
-  { from: 2022, label: 'THE FALL',       bias: 0.25, vol: 1.00, pace: 0.78 },
-  { from: 2023, label: 'RECOVERY',       bias: 0.62, vol: 0.75, pace: 0.90 },
-  { from: 2024, label: 'ETF ERA',        bias: 0.70, vol: 0.90, pace: 0.75 },
-  { from: 2025, label: 'NEW HIGHS',      bias: 0.72, vol: 1.05, pace: 0.65 },
-  { from: 2026, label: 'FINAL SPRINT',   bias: 0.60, vol: 1.15, pace: 0.60 },
+  { from: 2008, label: 'GENESIS',        bias: 0.62, vol: 0.80, pace: 1.05 },
+  { from: 2010, label: 'EARLY DAYS',     bias: 0.70, vol: 0.90, pace: 1.00 },
+  { from: 2013, label: 'FIRST BUBBLE',   bias: 0.82, vol: 1.00, pace: 0.75 },
+  { from: 2014, label: 'THE CRASH',      bias: 0.26, vol: 0.95, pace: 0.85 },
+  { from: 2016, label: 'RECOVERY',       bias: 0.72, vol: 0.85, pace: 0.90 },
+  { from: 2017, label: 'BULL RUN',       bias: 0.86, vol: 1.10, pace: 0.68 },
+  { from: 2018, label: 'CRYPTO WINTER',  bias: 0.24, vol: 0.95, pace: 0.90 },
+  { from: 2019, label: 'SIDEWAYS',       bias: 0.58, vol: 0.80, pace: 1.00 },
+  { from: 2020, label: 'HALVING III',    bias: 0.78, vol: 0.95, pace: 0.80 },
+  { from: 2021, label: 'ALL-TIME HIGH',  bias: 0.86, vol: 1.15, pace: 0.65 },
+  { from: 2022, label: 'THE FALL',       bias: 0.22, vol: 1.05, pace: 0.78 },
+  { from: 2023, label: 'RECOVERY',       bias: 0.74, vol: 0.85, pace: 0.90 },
+  { from: 2024, label: 'ETF ERA',        bias: 0.82, vol: 1.00, pace: 0.75 },
+  { from: 2025, label: 'NEW HIGHS',      bias: 0.86, vol: 1.15, pace: 0.65 },
+  { from: 2026, label: 'FINAL SPRINT',   bias: 0.74, vol: 1.20, pace: 0.60 },
 ];
 const MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
@@ -320,12 +320,16 @@ function mHat(t, gain) {
 function musicTick() {
   if (!AC || !musicGain) return;
   const rushing = state === 'play' && worldT < frenzyUntil; // la boucle s'emballe en FOMO
+  // pendant le rush : plus fort, basse à chaque temps, arpège en dents de scie, charley doublé
+  if (!muted) musicGain.gain.setTargetAtTime(rushing ? 0.62 : 0.3, AC.currentTime, 0.15);
   while (musicNext < AC.currentTime + 0.35) {
     const step = musicStep % 32, ch = CHORDS[Math.floor(step / 8) % 4], t = musicNext;
-    if (step % 8 === 0) mNote(ch.bass, t, 0.34, 'square', 0.1);
-    if (step % 8 === 5) mNote(ch.bass * 1.5, t, 0.16, 'square', 0.06);
-    mNote(ch.arp[step % 4] * (rushing ? 2 : 1), t, 0.1, 'triangle', 0.038);
-    if (step % 4 === 2) mHat(t, 0.05);
+    if (step % (rushing ? 4 : 8) === 0) mNote(ch.bass, t, rushing ? 0.2 : 0.34, 'square', rushing ? 0.15 : 0.1);
+    if (step % 8 === 5) mNote(ch.bass * 1.5, t, 0.16, 'square', rushing ? 0.1 : 0.06);
+    mNote(ch.arp[step % 4] * (rushing ? 2 : 1), t, rushing ? 0.08 : 0.1,
+          rushing ? 'sawtooth' : 'triangle', rushing ? 0.06 : 0.038);
+    if (rushing) mNote(ch.arp[(step + 2) % 4] * 4, t, 0.05, 'square', 0.025); // contrechant aigu
+    if (step % (rushing ? 2 : 4) === 2) mHat(t, rushing ? 0.075 : 0.05);
     musicNext += rushing ? STEP * 0.75 : STEP;
     musicStep++;
   }
@@ -433,7 +437,9 @@ let nextSpawnAt = 0, nextHitAt = 0, upcoming = null;
 // la note suivante est décidée à l'avance : on l'affiche en fantôme, on la voit venir
 function rollUpcoming() {
   const year = yearOf(idx), era = eraOf(year), frenzy = worldT < frenzyUntil;
-  const green = Math.random() < (frenzy ? 0.95 : era.bias);
+  // rappel doux vers la courbe de fond : sous la tendance, le vert redevient probable
+  const pull = clamp((level - trendAt(idx)) / 700, -0.3, 0.34);
+  const green = Math.random() < clamp((frenzy ? 0.95 : era.bias) + pull, 0.08, 0.97);
   const dualChance = ((year >= CFG.dualFromYear ? clamp(0.08 + (year - CFG.dualFromYear) * 0.03, 0, 0.38) : 0) + (frenzy ? 0.2 : 0)) * L.dual;
   // le sens des flèches suit le sens du marché : vert = on achète (haut/droite),
   // rouge = on vend (bas/gauche). Jamais de flèche à contresens de la bougie.
@@ -454,6 +460,9 @@ const nextStep = () => {
 };
 
 const yearOf = i => 2008 + i / 3.6;
+// Courbe de fond : le cours monte fortement sur la durée, en accélérant. La marche
+// aléatoire est rappelée vers elle — la tendance est garantie, les décrochages restent.
+const trendAt = i => 560 - 7200 * Math.pow(clamp(i / CFG.totalCandles, 0, 1), 1.3);
 const eraOf = y => { let e = ERAS[0]; for (const it of ERAS) if (y >= it.from) e = it; return e; };
 
 // ---- Spawn d'une bougie + d'un beat ----
@@ -495,11 +504,15 @@ function spawnBeat() {
   if (!upcoming) rollUpcoming();
   const green = upcoming.green, keys = upcoming.keys;
   upcoming = null;
-  let body = lerp(40, 116, amp) * era.vol * (frenzy ? 1.25 : 1) + 26;
-  let wick = lerp(22, 56, amp) * era.vol + 12;
-  // on ne dément jamais la couleur annoncée : si ça sort du cadre, on raccourcit la bougie
-  const room = green ? level + 9000 : 820 - level;
-  if (body + wick > room) { const k = Math.max(0.2, room / (body + wick)); body *= k; wick *= k; }
+  // un plancher de volatilité : aucune bougie ne doit être quasi plate
+  const vol = Math.max(0.78, era.vol);
+  let body = lerp(56, 132, amp) * vol * (frenzy ? 1.25 : 1) + 30;
+  let wick = lerp(26, 60, amp) * vol + 14;
+  // les hausses portent plus loin que les baisses, comme le cours réel
+  if (green) { body *= 1.16; wick *= 1.1; }
+  // garde-fou très large, et qui ne peut plus écraser une bougie : la caméra suit
+  const room = green ? level + 15000 : 1100 - level;
+  if (body + wick > room) { const k = Math.max(0.65, room / (body + wick)); body *= k; wick *= k; }
   const c = {
     slot: idx, green, body, wick,
     top: green ? level - body : level, bot: green ? level : level + body,
@@ -532,7 +545,7 @@ function spawnBeat() {
   }
   // FOMO RUSH : rare, et seulement porté par une vraie série de bougies vertes
   greenStreak = c.green ? greenStreak + 1 : 0;
-  if (!frenzy && greenStreak >= 4 && worldT >= frenzyCooldown && Math.random() < 0.3) startFrenzy();
+  if (!frenzy && greenStreak >= 3 && worldT >= frenzyCooldown && Math.random() < 0.45) startFrenzy();
   idx++;
   rollUpcoming(); // la note d'après est annoncée tout de suite, en fantôme
 }
@@ -564,17 +577,18 @@ function resolve(result, label, color) {
 }
 
 function startFrenzy() {
+  if (worldT < frenzyCooldown) return; // jamais deux rushes rapprochés, même via un événement
   frenzyUntil = worldT + CFG.frenzyDur;
-  frenzyCooldown = worldT + 50; // rare : long temps mort après chaque rush
+  frenzyCooldown = worldT + CFG.frenzyDur + 26; // deux rushes ne peuvent pas se suivre
   greenStreak = 0;
   sfx.frenzy();
 }
 
 function dropRedCandle() { // chaque avancée du panic fait tomber une vraie bougie rouge
-  if (idx >= CFG.totalCandles - 1 || cascade >= 6) return; // la cascade ne dévore pas la frise
+  if (idx >= CFG.totalCandles - 1 || cascade >= 8) return; // la cascade ne dévore pas la frise
   cascade++;
-  const h = rand(40, 85), w = rand(10, 26);
-  const bot = Math.min(880, level + h);
+  const h = rand(45, 90), w = rand(12, 28);
+  const bot = Math.min(1100, level + h);
   const c = { slot: idx, green: false, top: level, bot, body: bot - level, wick: w, grow: 1, wickProg: 1, done: true, missed: false, panic: true, extremeY: bot + w };
   level = bot;
   candles.push(c);
@@ -589,8 +603,8 @@ function dropRedCandle() { // chaque avancée du panic fait tomber une vraie bou
 function riseGreenCandle() { // le pump fait monter de vraies bougies vertes
   if (idx >= CFG.totalCandles - 1 || cascade >= 6) return; // même plafond que la chute
   cascade++;
-  const h = rand(40, 85), w = rand(10, 26);
-  const top = Math.max(-9200, level - h);
+  const h = rand(55, 105), w = rand(12, 28);
+  const top = Math.max(-15000, level - h);
   const c = { slot: idx, green: true, top, bot: level, body: level - top, wick: w, grow: 1, wickProg: 1, done: true, missed: false, panic: true, extremeY: top - w };
   level = top;
   candles.push(c);
@@ -642,7 +656,7 @@ function spawnPanic(year) {
   panicCooldown = worldT + 45;
   cascade = 0;
   if (panicN === 1) { // le premier : martèlement, comme au bon vieux temps
-    beat = { type: 'panic', mode: 'mash', tStart: worldT + 0.7, tEnd: worldT + 0.7 + CFG.panicDur, count: 0, wrongAt: -9, resolved: false };
+    beat = { type: 'panic', mode: 'mash', label: 'PANIC SELL!', sub: 'MASH ↓ TO SELL EVERYTHING', tStart: worldT + 0.7, tEnd: worldT + 0.7 + CFG.panicDur, count: 0, wrongAt: -9, resolved: false };
   } else { // les suivants : séquence de flèches à enchaîner dans l'ordre
     const n = Math.min(9, 6 + Math.floor((year - 2013) / 4));
     const dirs = ['up', 'down', 'left', 'right'];
@@ -652,7 +666,7 @@ function spawnPanic(year) {
       if (d === seq[seq.length - 1]) d = dirs[(dirs.indexOf(d) + 1 + Math.floor(Math.random() * 3)) % 4];
       seq.push(d);
     }
-    beat = { type: 'panic', mode: 'seq', seq, pos: 0, tStart: worldT + 0.9, tEnd: worldT + 0.9 + n * CFG.panicPerKey + 0.4, wrongAt: -9, resolved: false };
+    beat = { type: 'panic', mode: 'seq', label: 'FLASH CRASH!', sub: 'RUN THE SEQUENCE, IN ORDER!', seq, pos: 0, tStart: worldT + 0.9, tEnd: worldT + 0.9 + n * CFG.panicPerKey + 0.4, wrongAt: -9, resolved: false };
   }
   sfx.alarm();
   const yr = Math.floor(year);
@@ -677,7 +691,8 @@ function panicPress(dir) {
     pnl += Math.round(120 * (1 + combo * 0.05));
     shake = Math.max(shake, 3 * CFG.shake);
     beep(Math.max(200, 560 - beat.pos * 30), 0.06, 'square', 0.16);
-    if (beat.pos % 2 === 0 || beat.pos >= beat.seq.length) dropRedCandle();
+    dropRedCandle(); // le flash crash décroche à chaque flèche
+    shake = Math.max(shake, 6 * CFG.shake);
     if (beat.pos >= beat.seq.length) resolvePanic(true);
   } else {
     beat.wrongAt = worldT; // mauvaise touche : flash + pénalité de temps
@@ -746,7 +761,7 @@ function gameEnd(won) {
   best = Math.max(best, pnl);
   try { localStorage.setItem(bestKey(), String(best)); } catch (e) {}
   document.getElementById('endTitle').textContent = won ? 'TO THE MOON' : 'MARKET CLOSED';
-  document.getElementById('endTitle').style.color = won ? PAL.green : PAL.purpleHi;
+  document.getElementById('endTitle').style.color = won ? PAL.green : PAL.red;
   document.getElementById('endSub').textContent = L.label + ' · ' + (won ? '2008 → 2026 · FULL RUN' : 'REACHED ' + Math.floor(yearOf(Math.max(0, idx - 1))));
   document.getElementById('endPnl').textContent = fmt$(pnl);
   document.getElementById('endCombo').textContent = '×' + bestCombo;
@@ -1125,9 +1140,9 @@ function render() {
     ctx.textAlign = 'center';
     ctx.globalAlpha = 0.85 + 0.15 * Math.sin(worldT * 14);
     ctx.fillStyle = PAL.red; ctx.font = '700 46px "Space Grotesk"';
-    ctx.fillText('PANIC SELL!', 720, 232);
+    ctx.fillText(beat.label, 720, 232);
     ctx.font = '500 13px "IBM Plex Mono"';
-    ctx.fillText(armed ? (beat.mode === 'mash' ? 'MASH ↓ TO SELL EVERYTHING' : 'RUN THE SEQUENCE, IN ORDER!') : 'GET READY…', 720, 264);
+    ctx.fillText(armed ? beat.sub : 'GET READY…', 720, 264);
     ctx.globalAlpha = 1;
     if (beat.mode === 'mash') {
       mashKeycap(720, 352, 'down', armed, PAL.red, beat.lastPressAt);
@@ -1353,7 +1368,7 @@ addEventListener('keydown', e => {
   const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
   if (KEYMAP[k]) e.preventDefault();
   if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (err) {} }
-  if (k === 'm') { muted = !muted; if (musicGain) musicGain.gain.value = muted ? 0 : 0.3; return; }
+  if (k === 'm') { muted = !muted; if (musicGain) musicGain.gain.value = muted ? 0 : (worldT < frenzyUntil ? 0.62 : 0.3); return; }
   if (k === 't') { toggleTune(); return; }
   if (k === 'Escape' && !document.getElementById('tune').hidden) { toggleTune(false); return; }
   if (k === 'Escape' && (state === 'play' || state === 'pause')) {
