@@ -93,7 +93,7 @@
       <button id="lvNormal" type="button"><b>NORMAL <span class="k">1</span></b><span>more time, 4 lives</span></button>
       <button id="lvHard" type="button"><b>HARD <span class="k">2</span></b><span>fast, tight, 3 lives</span></button>
     </div>
-    <div class="go">SPACE TO START &middot; 1 AND 2 SWITCH LEVEL</div>
+    <div class="go">&larr; &rarr; TO CHOOSE &middot; SPACE TO START</div>
   </div>
 </div>
 
@@ -1627,6 +1627,13 @@ addEventListener('keydown', e => {
     return;
   }
   if (state === 'start') {
+    // les flèches choisissent le niveau sans lancer : espace lance
+    if (k === 'ArrowLeft' || k === 'ArrowRight') {
+      e.preventDefault();
+      applyLevel(k === 'ArrowLeft' ? 'normal' : 'hard');
+      loadBest();
+      return;
+    }
     if (k === '1' || k === '2' || k === ' ' || k === 'Enter') {
       e.preventDefault();
       startGame(k === '2' ? 'hard' : k === '1' ? 'normal' : levelKey);
