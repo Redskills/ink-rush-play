@@ -175,8 +175,8 @@
       <input id="pseudo" type="text" maxlength="14" placeholder="your name" autocomplete="off" spellcheck="false">
     </div>
     <div class="levels">
-      <button id="lvNormal" type="button"><b>NORMAL <span class="k">1</span></b><span>more time, 4 lives</span></button>
-      <button id="lvHard" type="button"><b>HARD <span class="k">2</span></b><span>faster, &#926; bonus, 3 lives</span></button>
+      <button id="lvNormal" type="button"><b>NORMAL <span class="k">1</span></b><span>more time, &#926; bonus, 4 lives</span></button>
+      <button id="lvHard" type="button"><b>HARD <span class="k">2</span></b><span>faster, &#926; + SOL bonus, 3 lives</span></button>
     </div>
     <div class="go hideOnTouch">1 / 2 TO CHOOSE &middot; SPACE TO START</div>
     <div class="go showOnTouch" hidden>PICK A LEVEL &middot; THEN <b>DOUBLE TAP</b> TO START</div>
@@ -189,12 +189,13 @@
     <div class="sub" id="endSub"></div>
     <div class="stat">Final P&amp;L: <b id="endPnl"></b></div>
     <div class="stat">Best combo: <b id="endCombo"></b></div>
+    <div class="stat">Lives left: <b id="endLives"></b></div>
     <div class="rank" id="endRank"></div>
     <div class="board" id="endBoard"></div>
     <div class="scope" id="endScope"></div>
     <div class="levels">
-      <button id="lvNormalEnd" type="button"><b>NORMAL <span class="k">1</span></b><span>more time, 4 lives</span></button>
-      <button id="lvHardEnd" type="button"><b>HARD <span class="k">2</span></b><span>faster, &#926; bonus, 3 lives</span></button>
+      <button id="lvNormalEnd" type="button"><b>NORMAL <span class="k">1</span></b><span>more time, &#926; bonus, 4 lives</span></button>
+      <button id="lvHardEnd" type="button"><b>HARD <span class="k">2</span></b><span>faster, &#926; + SOL bonus, 3 lives</span></button>
     </div>
     <div class="go hideOnTouch">1 / 2 TO CHOOSE &middot; SPACE TO PLAY AGAIN &middot; ESC FOR MENU</div>
     <div class="go showOnTouch" hidden>PICK A LEVEL &middot; THEN <b>DOUBLE TAP</b> TO PLAY AGAIN</div>
@@ -258,9 +259,10 @@ const CFG = {
 const BASE = Object.assign({}, CFG);
 const LEVELS = {
   // dual = fréquence des doubles touches · dualTime = temps en plus quand il y en a
+  // eth / sol = quels jetons bonus apparaissent · dualBonus = part des jetons à deux flèches
   // endMul = à quel point la fin du run accélère (1 = autant que DIFFICILE)
-  normal:    { label: 'NORMAL',    beat: 1.3,  flight: 1.2,  win: 1.32, panic: 1.25, dual: 0.28, dualTime: 1.45, endMul: 1.18, lives: 4, minLead: 0.7,  eth: false },
-  hard:      { label: 'HARD',      beat: 0.92, flight: 0.96, win: 1.06, panic: 1.05, dual: 1,    dualTime: 1.12, endMul: 1,    lives: 3, minLead: 0.46, eth: true },
+  normal:    { label: 'NORMAL',    beat: 1.3,  flight: 1.2,  win: 1.32, panic: 1.25, dual: 0.28, dualTime: 1.45, endMul: 1.18, lives: 4, minLead: 0.7,  eth: true, sol: false, dualBonus: 0 },
+  hard:      { label: 'HARD',      beat: 0.92, flight: 0.96, win: 1.06, panic: 1.05, dual: 1,    dualTime: 1.12, endMul: 1,    lives: 3, minLead: 0.46, eth: true, sol: true,  dualBonus: 0.45 },
 };
 let levelKey = 'normal';
 try { levelKey = localStorage.getItem('inkrush-level') || 'normal'; } catch (e) {}
@@ -288,7 +290,14 @@ const PAL = {
   bg: '#0A0D16', panel: '#0C1019', grid: '#171D2E', line: '#2A3145',
   text: '#E8EAF2', muted: '#6B7390', faint: '#4A5169',
   green: '#00D68F', greenHi: '#7DFFCF', red: '#FF4D5E',
-  purple: '#7C5CFF', purpleHi: '#A895FF', purpleDeep: '#161230', gold: '#FFC93C', eth: '#8FA8FF',
+  purple: '#7C5CFF', purpleHi: '#A895FF', purpleDeep: '#161230', gold: '#FFC93C', eth: '#8FA8FF', sol: '#14F195',
+};
+
+// Les trois jetons bonus : leur couleur, leur liseré, ce qu'ils rapportent.
+const COIN = {
+  btc: { col: PAL.gold, ring: '#FFE49A', name: 'BONUS', gain: 400 },
+  eth: { col: PAL.eth,  ring: '#D8E2FF', name: 'ETH',   gain: 550 },
+  sol: { col: PAL.sol,  ring: '#B4FFE0', name: 'SOL',   gain: 700 },
 };
 
 // pace : multiplicateur de tempo de l'époque (0.7 = frénétique, 1.2 = calme)
@@ -806,16 +815,28 @@ function spawnBeat() {
     const free = ['up', 'down', 'left', 'right'].filter(d => !keys.includes(d));
     // 0,82 s de réaction garanti, quel que soit le vol
     const pB = clamp(0.82 / flight + rand(0, 0.06), 0.52, 0.74);
-    const kB = free.splice(Math.floor(Math.random() * free.length), 1)[0];
-    beat.bonuses = [{ p: pB, key: kB, t: tThrow + pB * flight, done: false, kind: 'btc' }];
-    // en HARD seulement : un second jeton, l'Ethereum, plus tôt sur la trajectoire.
-    // l'écart se compte en secondes réelles (0,34 s), sinon les deux flèches
-    // tombent l'une sur l'autre sur les vols courts.
-    if (L.eth && free.length) {
-      const pE = pB - 0.34 / flight;
-      if (pE >= 0.22) beat.bonuses.unshift({ p: pE, key: free[Math.floor(Math.random() * free.length)],
-                                             t: tThrow + pE * flight, done: false, kind: 'eth' });
-    }
+    const take = () => free.splice(Math.floor(Math.random() * free.length), 1)[0];
+    // Les jetons se suivent sur la trajectoire : ₿ juste avant la cible, les autres
+    // plus tôt. L'écart se compte en secondes réelles (0,34 s), sinon les flèches
+    // tombent l'une sur l'autre sur les vols courts. Ξ et Solana passent dans un
+    // ordre tiré au sort, pour qu'aucun des deux ne soit toujours le sacrifié
+    // quand il ne reste plus de flèche libre.
+    const wanted = ['btc'];
+    const extra = [];
+    if (L.eth) extra.push('eth');
+    if (L.sol) extra.push('sol');
+    if (extra.length === 2 && Math.random() < 0.5) extra.reverse();
+    wanted.push.apply(wanted, extra);
+    beat.bonuses = [];
+    wanted.forEach((kind, i) => {
+      const pK = pB - i * 0.34 / flight;
+      if (pK < 0.22 || !free.length) return;
+      const ks = [take()];
+      // en HARD, une partie des jetons demande les deux flèches à la fois — mais on
+      // garde toujours de quoi donner une flèche aux jetons suivants
+      if (L.dualBonus && free.length >= 2 && Math.random() < L.dualBonus) ks.push(take());
+      beat.bonuses.unshift({ p: pK, keys: ks, t: tThrow + pK * flight, done: false, hit: {}, kind });
+    });
   }
   const yr = Math.floor(year);
   if (yr !== yearFx.year) yearFx = { year: yr, t: 0 };
@@ -1054,19 +1075,24 @@ function press(dir) {
   if (beat.type === 'panic') return panicPress(dir);
   if (beat.type === 'pump') return pumpPress(dir);
   if (worldT < beat.tThrow) return;
-  // jetons ₿ / Ξ : leur flèche (ou B). Hors fenêtre, rien — jamais de sanction.
-  // On prend le plus proche dans le temps, au cas où les deux partagent une flèche.
-  const cand = (beat.bonuses || []).filter(b => !b.done && (dir === b.key || dir === 'bonus'));
+  // jetons ₿ / Ξ / SOL : leur flèche (ou B). Hors fenêtre, rien — jamais de sanction.
+  // On prend le plus proche dans le temps, au cas où deux partagent une flèche.
+  const cand = (beat.bonuses || []).filter(b => !b.done && (dir === 'bonus' || b.keys.indexOf(dir) >= 0));
   const bn = cand.sort((a, b) => Math.abs(worldT - a.t) - Math.abs(worldT - b.t))[0];
   if (bn) {
     if (Math.abs(worldT - bn.t) <= CFG.bonusWindow) {
-      bn.done = true;
-      const eth = bn.kind === 'eth', col = eth ? PAL.eth : PAL.gold;
-      const gain = Math.round((eth ? 550 : 400) * (1 + combo * 0.08));
-      pnl += gain; sfx.bonus();
-      const pos = bezPoint(beat.c, bn.p);
-      burst(pos.x, pos.y, 10, col);
-      addFloater((eth ? 'ETH ' : 'BONUS ') + fmt$(gain), pos.x, pos.y - 36, col, 20);
+      // un jeton peut demander deux flèches : il ne tombe qu'une fois les deux pressées
+      if (dir === 'bonus') bn.keys.forEach(k => { bn.hit[k] = true; });
+      else bn.hit[dir] = true;
+      if (bn.keys.every(k => bn.hit[k])) {
+        bn.done = true;
+        const K = COIN[bn.kind] || COIN.btc;
+        const gain = Math.round(K.gain * (1 + combo * 0.08) * (bn.keys.length > 1 ? 1.6 : 1));
+        pnl += gain; sfx.bonus();
+        const pos = bezPoint(beat.c, bn.p);
+        burst(pos.x, pos.y, 10, K.col);
+        addFloater(K.name + ' ' + fmt$(gain), pos.x, pos.y - 36, K.col, 20);
+      }
     }
     return; // prendre un bonus ne touche jamais au jugement de la cible
   }
@@ -1093,8 +1119,16 @@ function gameEnd(won) {
   document.getElementById('endSub').textContent = L.label + ' · ' + (won ? (inkLaunched ? '2008 → 2026 · YOU MADE IT TO THE TOKEN LAUNCH' : '2008 → 2027 · FULL RUN') : 'REACHED ' + Math.floor(yearOf(Math.max(0, tick - 1))));
   document.getElementById('endPnl').textContent = fmt$(pnl);
   document.getElementById('endCombo').textContent = '×' + bestCombo;
+  document.getElementById('endLives').textContent = lives + ' / ' + CFG.lives;
   const local = saveScore(playerName || 'ANON', pnl);
-  renderBoard(local, 'local');
+  // Avec Supabase, on attend le vrai classement : afficher le local puis le
+  // remplacer donnait un clignotement d'une demi-seconde.
+  if (!SUPA_ON) renderBoard(local, 'local');
+  else {
+    document.getElementById('endRank').innerHTML = '&nbsp;';
+    document.getElementById('endBoard').innerHTML = '<div style="justify-content:center;color:#4A5169">loading…</div>';
+    document.getElementById('endScope').textContent = '';
+  }
   // si Supabase est configuré, on enregistre la partie puis on réaffiche le vrai classement
   (async () => {
     if (!SUPA_ON) return;
@@ -1110,7 +1144,7 @@ function gameEnd(won) {
       device_kind: MOB ? 'mobile' : 'desktop',
     });
     const rows = await fetchRemoteBoard();
-    if (!rows || !rows.length) return;
+    if (!rows || !rows.length) return renderBoard(local, 'local'); // repli si le réseau lâche
     let mine = rows.findIndex(r => r.d === deviceId);
     const entry = mine >= 0 ? rows[mine] : { n: playerName || 'ANON', s: Math.round(pnl), t: Date.now() };
     if (mine < 0) mine = rows.length;
@@ -1522,7 +1556,7 @@ function render() {
   // jetons bonus : visibles dès la naissance de la bougie, posés juste avant la cible
   for (const b of (beat && !beat.resolved && beat.c ? beat.bonuses : [])) {
     if (b.done) continue;
-    const eth = b.kind === 'eth', COL = eth ? PAL.eth : PAL.gold;
+    const K = COIN[b.kind] || COIN.btc, COL = K.col;
     const pos = bezPoint(beat.c, b.p);
     const activeB = Math.abs(worldT - b.t) < CFG.bonusWindow;
     const passed = worldT > b.t + CFG.bonusWindow;
@@ -1541,23 +1575,36 @@ function render() {
       }
       ctx.globalAlpha = 1;
     }
-    ctx.fillStyle = COL; ctx.strokeStyle = eth ? '#D8E2FF' : '#FFE49A'; ctx.lineWidth = 2;
+    ctx.fillStyle = COL; ctx.strokeStyle = K.ring; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(pos.x, pos.y, 14, 0, 7); ctx.fill(); ctx.stroke();
     ctx.fillStyle = '#0A0D16';
-    if (eth) { // le losange Ethereum, dessiné : deux moitiés comme le vrai logo
+    if (b.kind === 'eth') { // le losange Ethereum, dessiné : deux moitiés comme le vrai logo
       ctx.beginPath();
       ctx.moveTo(pos.x, pos.y - 8.5); ctx.lineTo(pos.x + 5.4, pos.y - 0.4);
       ctx.lineTo(pos.x, pos.y + 2.9); ctx.lineTo(pos.x - 5.4, pos.y - 0.4); ctx.closePath(); ctx.fill();
       ctx.beginPath();
       ctx.moveTo(pos.x - 5.4, pos.y + 1.4); ctx.lineTo(pos.x, pos.y + 8.5);
       ctx.lineTo(pos.x + 5.4, pos.y + 1.4); ctx.lineTo(pos.x, pos.y + 4.4); ctx.closePath(); ctx.fill();
+    } else if (b.kind === 'sol') { // Solana : les trois barres inclinées
+      const solBar = (y, lean) => {
+        const half = 6.2, h = 2.7, sh = 2.1;
+        ctx.beginPath();
+        if (lean > 0) { ctx.moveTo(pos.x - half + sh, y); ctx.lineTo(pos.x + half, y);
+                        ctx.lineTo(pos.x + half - sh, y + h); ctx.lineTo(pos.x - half, y + h); }
+        else { ctx.moveTo(pos.x - half, y); ctx.lineTo(pos.x + half - sh, y);
+               ctx.lineTo(pos.x + half, y + h); ctx.lineTo(pos.x - half + sh, y + h); }
+        ctx.closePath(); ctx.fill();
+      };
+      solBar(pos.y - 7.4, 1); solBar(pos.y - 1.4, -1); solBar(pos.y + 4.6, 1);
     } else {
       ctx.font = '700 14px "Space Grotesk"'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText('\u20BF', pos.x, pos.y + 1);
       ctx.textBaseline = 'alphabetic';
     }
-    // au ras du jeton, mais toujours dans l'écran
-    keycap(clamp(pos.x, 26, W - 26), clamp(pos.y - 34, HUD_H + 26, TL_TOP - 26), b.key, activeB, 19, COL);
+    // au ras du jeton, mais toujours dans l'écran ; deux flèches = deux touches
+    const kcy = clamp(pos.y - 34, HUD_H + 26, TL_TOP - 26);
+    b.keys.forEach((k, i) => keycap(clamp(pos.x + (b.keys.length > 1 ? (i ? 23 : -23) : 0), 26, W - 26),
+                                    kcy, k, activeB, 19, COL));
     if (activeB) { ctx.strokeStyle = COL; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(pos.x, pos.y, 24, 0, 7); ctx.stroke(); }
     ctx.globalAlpha = 1;
   }
@@ -1884,9 +1931,19 @@ function render() {
   ctx.textBaseline = 'alphabetic';
   ctx.textAlign = 'left';
   ctx.fillStyle = PAL.text; ctx.font = '700 ' + (MOB ? 30 : 20) + 'px "Space Grotesk"';
-  ctx.fillText('INK RUSH', 36, MOB ? 50 : 40);
+  const titleY = MOB ? 50 : 40;
+  ctx.fillText('INK RUSH', 36, titleY);
+  // le mode de jeu prend la place des vies et du combo : on sait toujours où l'on joue
+  const modeCol = levelKey === 'hard' ? PAL.red : PAL.purpleHi;
+  const titleW = ctx.measureText('INK RUSH').width;
+  ctx.font = '600 ' + (MOB ? 15 : 11) + 'px "IBM Plex Mono"';
+  const mh = MOB ? 28 : 22, mw = ctx.measureText(L.label).width + (MOB ? 30 : 24);
+  const mx = 36 + titleW + 14, my = titleY - mh + (MOB ? 8 : 6);
+  ctx.fillStyle = '#131028'; ctx.strokeStyle = modeCol; ctx.lineWidth = 1;
+  rr(mx, my, mw, mh, mh / 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = modeCol; ctx.fillText(L.label, mx + (MOB ? 15 : 12), my + mh / 2 + (MOB ? 5 : 4));
   if (!MOB) { ctx.fillStyle = PAL.faint; ctx.font = '500 10px "IBM Plex Mono"';
-    ctx.fillText('BTC/USD · 2008→2027 · ' + L.label, 36, 58); }
+    ctx.fillText('BTC/USD · 2008→2027', 36, 58); }
   // chip d'époque
   ctx.textAlign = 'center';
   const chip = era.label + ' · ' + mon + ' ' + year;
@@ -1898,13 +1955,11 @@ function render() {
   ctx.fillStyle = era.bias >= 0.5 ? PAL.green : PAL.red;
   ctx.beginPath(); ctx.arc(W / 2 - cw / 2 + 20, chipY + 17, 4, 0, 7); ctx.fill();
   ctx.fillStyle = '#C9CDDC'; ctx.fillText(chip, W / 2 + 8, chipY + 21);
-  // stats droite
+  // à droite, le P&L seul : le combo et les vies sont sur l'écran de fin
   ctx.textAlign = 'right'; ctx.font = '500 ' + (MOB ? 13 : 9) + 'px "IBM Plex Mono"'; ctx.fillStyle = PAL.faint;
-  ctx.fillText('P&L', W - 290, 28); ctx.fillText('COMBO', W - 170, 28); ctx.fillText('LIVES', W - 44, 28);
+  ctx.fillText('P&L', W - 44, 28);
   ctx.font = '600 ' + (MOB ? 26 : 19) + 'px "IBM Plex Mono"';
-  ctx.fillStyle = pnl >= 0 ? PAL.green : PAL.red; ctx.fillText(fmt$(pnl), W - 290, 56);
-  ctx.fillStyle = PAL.purpleHi; ctx.fillText('×' + combo, W - 170, 56);
-  for (let i = 0; i < CFG.lives; i++) { ctx.fillStyle = i < lives ? PAL.purple : '#262C3F'; ctx.beginPath(); ctx.arc(W - 44 - (CFG.lives - 1 - i) * 20, 50, 6, 0, 7); ctx.fill(); }
+  ctx.fillStyle = pnl >= 0 ? PAL.green : PAL.red; ctx.fillText(fmt$(pnl), W - 44, 56);
 
   // ---- Timeline ----
   // le fond d'abord, PUIS le calamar, PUIS la barre et les dates : les tentacules
@@ -2088,6 +2143,9 @@ document.getElementById('pseudo').value = playerName;
 document.getElementById('pseudo').addEventListener('pointerdown', e => e.stopPropagation());
 for (const [id, key] of [['lvNormal', 'normal'], ['lvHard', 'hard'],
                          ['lvNormalEnd', 'normal'], ['lvHardEnd', 'hard']]) {
+  // Le clic global qui relance une partie écoute pointerdown, qui part AVANT le
+  // click : sans ce garde, appuyer sur HARD relançait le niveau précédent.
+  document.getElementById(id).addEventListener('pointerdown', e => e.stopPropagation());
   document.getElementById(id).addEventListener('click', e => {
     e.stopPropagation();
     // sur tactile un tap ne fait que choisir : c'est le double tap qui lance
