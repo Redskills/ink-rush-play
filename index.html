@@ -156,9 +156,9 @@
     <p>An <b>INK</b> token is thrown at every candle.<br>
     Press the arrow shown <b>exactly</b> when it reaches the tip of the wick.</p>
     <div class="keys hideOnTouch"><span class="key">&#8592;</span><span class="key">&#8593;</span><span class="key">&#8595;</span><span class="key">&#8594;</span></div>
-    <p class="small hideOnTouch" style="color: #FFC93C;">A &#8383; token drifts across: hit its arrow (or <b>B</b>) as you pass &rarr; bonus, no risk.</p>
+    <p class="small hideOnTouch" style="color: #FFC93C;">A &#8383; token drifts across: hit its arrow (or <b>B</b>) as you pass &rarr; bonus, no risk.<br><span style="color:#8FA8FF">On HARD an <b>&#926;</b> token comes first &mdash; two to catch per candle.</span></p>
     <p class="small hideOnTouch" style="color: #FF4D5E;">When it screams PANIC SELL, run the arrow sequence in order.</p>
-    <p class="small" id="hintKeys">Arrow keys or WASD &middot; sometimes two at once<br>Space pause &middot; N new run &middot; Esc menu &middot; M mute &middot; T tuning</p>
+    <p class="small" id="hintKeys">Arrow keys or WASD &middot; sometimes two at once<br>Space pause &middot; N new run &middot; 1 / 2 switch level &middot; Esc menu &middot; M mute</p>
     <p class="small" id="hintTouch" hidden>Swipe up, down, left or right &middot; swipe diagonally for two at once<br>Tap fast when the game asks for it</p>
     <div class="showOnTouch" hidden>
       <div class="demo">
@@ -176,9 +176,9 @@
     </div>
     <div class="levels">
       <button id="lvNormal" type="button"><b>NORMAL <span class="k">1</span></b><span>more time, 4 lives</span></button>
-      <button id="lvHard" type="button"><b>HARD <span class="k">2</span></b><span>fast, tight, 3 lives</span></button>
+      <button id="lvHard" type="button"><b>HARD <span class="k">2</span></b><span>faster, &#926; bonus, 3 lives</span></button>
     </div>
-    <div class="go hideOnTouch">&larr; &rarr; TO CHOOSE &middot; SPACE TO START</div>
+    <div class="go hideOnTouch">1 / 2 TO CHOOSE &middot; SPACE TO START</div>
     <div class="go showOnTouch" hidden>PICK A LEVEL &middot; THEN <b>DOUBLE TAP</b> TO START</div>
   </div>
 </div>
@@ -194,9 +194,9 @@
     <div class="scope" id="endScope"></div>
     <div class="levels">
       <button id="lvNormalEnd" type="button"><b>NORMAL <span class="k">1</span></b><span>more time, 4 lives</span></button>
-      <button id="lvHardEnd" type="button"><b>HARD <span class="k">2</span></b><span>fast, tight, 3 lives</span></button>
+      <button id="lvHardEnd" type="button"><b>HARD <span class="k">2</span></b><span>faster, &#926; bonus, 3 lives</span></button>
     </div>
-    <div class="go hideOnTouch">&larr; &rarr; TO CHOOSE &middot; SPACE TO PLAY AGAIN &middot; ESC FOR MENU</div>
+    <div class="go hideOnTouch">1 / 2 TO CHOOSE &middot; SPACE TO PLAY AGAIN &middot; ESC FOR MENU</div>
     <div class="go showOnTouch" hidden>PICK A LEVEL &middot; THEN <b>DOUBLE TAP</b> TO PLAY AGAIN</div>
   </div>
 </div>
@@ -259,8 +259,8 @@ const BASE = Object.assign({}, CFG);
 const LEVELS = {
   // dual = fréquence des doubles touches · dualTime = temps en plus quand il y en a
   // endMul = à quel point la fin du run accélère (1 = autant que DIFFICILE)
-  normal:    { label: 'NORMAL',    beat: 1.3,  flight: 1.2,  win: 1.32, panic: 1.25, dual: 0.28, dualTime: 1.45, endMul: 1.18, lives: 4, minLead: 0.7 },
-  hard:      { label: 'HARD',      beat: 0.94, flight: 0.96, win: 1.0,  panic: 1.0,  dual: 1,    dualTime: 1.12, endMul: 1,    lives: 3, minLead: 0.46 },
+  normal:    { label: 'NORMAL',    beat: 1.3,  flight: 1.2,  win: 1.32, panic: 1.25, dual: 0.28, dualTime: 1.45, endMul: 1.18, lives: 4, minLead: 0.7,  eth: false },
+  hard:      { label: 'HARD',      beat: 0.92, flight: 0.96, win: 1.06, panic: 1.05, dual: 1,    dualTime: 1.12, endMul: 1,    lives: 3, minLead: 0.46, eth: true },
 };
 let levelKey = 'normal';
 try { levelKey = localStorage.getItem('inkrush-level') || 'normal'; } catch (e) {}
@@ -288,7 +288,7 @@ const PAL = {
   bg: '#0A0D16', panel: '#0C1019', grid: '#171D2E', line: '#2A3145',
   text: '#E8EAF2', muted: '#6B7390', faint: '#4A5169',
   green: '#00D68F', greenHi: '#7DFFCF', red: '#FF4D5E',
-  purple: '#7C5CFF', purpleHi: '#A895FF', purpleDeep: '#161230', gold: '#FFC93C',
+  purple: '#7C5CFF', purpleHi: '#A895FF', purpleDeep: '#161230', gold: '#FFC93C', eth: '#8FA8FF',
 };
 
 // pace : multiplicateur de tempo de l'époque (0.7 = frénétique, 1.2 = calme)
@@ -464,8 +464,9 @@ function musicTick() {
   const halted = worldT < haltUntil;
   // Adaptations sonores : la piste s'ouvre et accélère pendant un rush, se voile et
   // ralentit pendant l'arrêt des cotations, et reprend son cours ensuite.
-  if (!muted) musicGain.gain.setTargetAtTime(halted ? 0.04 : mega ? 0.3 : rushing ? 0.26 : 0.18, AC.currentTime, 0.25);
-  if (musicFilter) musicFilter.frequency.setTargetAtTime(halted ? 620 : rushing ? 18000 : 9000, AC.currentTime, 0.25);
+  // volume CONSTANT : un rush s'entend au filtre et aux bruitages, jamais au volume
+  if (!muted) musicGain.gain.setTargetAtTime(0.2, AC.currentTime, 0.3);
+  if (musicFilter) musicFilter.frequency.setTargetAtTime(halted ? 900 : rushing ? 18000 : 9000, AC.currentTime, 0.25);
   // La piste garde TOUJOURS son tempo. Un rush s'entend au volume et au filtre,
   // jamais en accélérant la musique — c'est désagréable.
   if (bgm && bgm.playbackRate !== 1) bgm.playbackRate = 1;
@@ -479,7 +480,7 @@ function startMusic() {
   // encore complet, on ne fait rien et on réessaiera au chargement.
   if (!bgm) return;
   musicGain = AC.createGain();
-  musicGain.gain.value = muted ? 0 : 0.18;
+  musicGain.gain.value = muted ? 0 : 0.2;
   // passe-bas : arrondit les carrés et empêche tout timbre criard, y compris en rush
   musicFilter = AC.createBiquadFilter();
   musicFilter.type = 'lowpass'; musicFilter.frequency.value = 2200; musicFilter.Q.value = 0.6;
@@ -532,6 +533,7 @@ const KRAKEN_FX_DUR = 1.9; // montée, palier bien visible, descente
 const rainbowNow = () => worldT - krakenFx >= 0 && worldT - krakenFx < KRAKEN_FX_DUR;
 let idx, tick, level, pnl, combo, bestCombo, lives, cam, camTarget, camY, camYSpeed, yearFx, lastEraLabel, lastWasPanic, frenzyUntil, frenzyCooldown, greenStreak, panicN, tempoDrift, eventIdx, eventDur, eventToastUntil, eventCur, airdropLeft, crashLeft, panicCooldown, cascade;
 let best = 0;
+let runStartMs = Date.now();
 const bestKey = () => 'inkrush-best-' + levelKey;
 function loadBest() { try { best = Number(localStorage.getItem(bestKey()) || 0); } catch (e) { best = 0; } }
 loadBest();
@@ -539,32 +541,54 @@ loadBest();
 // Pseudo et classement, gardés dans le navigateur du joueur
 let playerName = '';
 try { playerName = localStorage.getItem('inkrush-name') || ''; } catch (e) {}
+
+// Identifiant anonyme du navigateur : reconnaitre un meme joueur d'une partie a
+// l'autre, sans compte ni mot de passe. Rien de personnel la-dedans.
+let deviceId = '';
+const newDeviceId = () => 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+try {
+  deviceId = localStorage.getItem('inkrush-device') || '';
+  if (!deviceId) {
+    deviceId = (self.crypto && crypto.randomUUID) ? crypto.randomUUID() : newDeviceId();
+    localStorage.setItem('inkrush-device', deviceId);
+  }
+} catch (e) { deviceId = newDeviceId(); }
+
 // ---------------------------------------------------------------------------
-// CLASSEMENT PARTAGÉ
-// Renseigne une URL ci-dessous et le classement devient commun à tous les joueurs,
-// sur toutes les machines. Tant qu'elle est vide, il reste local au navigateur.
-// Le serveur doit répondre à :
-//   GET  <URL>?level=normal        -> [{ n: "nom", s: 123, t: 1690000000000 }, ...]
-//   POST <URL>  { level, n, s, t } -> enregistre le score
-const SCORE_API = '';
+// CLASSEMENT PARTAGE — Supabase
+// Colle ci-dessous l'URL du projet et la cle « anon public » (tableau de bord
+// Supabase > Project Settings > API). Tant qu'elles sont vides, le classement
+// reste local au navigateur du joueur. Cette cle est faite pour etre publique.
+// Table, vues et droits : voir supabase/schema.sql
+const SUPA_URL = 'https://thkvgjozinfkpwqmjkmg.supabase.co';
+const SUPA_KEY = 'sb_publishable_BdKcZaDi9MjMBnYNHv9nKQ_TWoVIkRl';
+const SUPA_ON = !!(SUPA_URL && SUPA_KEY);
+const supaHead = () => ({ apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json' });
 const boardKey = () => 'inkrush-board-' + levelKey;
 
+// Une ligne par joueur : son meilleur score sur ce niveau, du plus haut au plus bas
 async function fetchRemoteBoard() {
-  if (!SCORE_API) return null;
+  if (!SUPA_ON) return null;
   try {
-    const r = await fetch(SCORE_API + '?level=' + encodeURIComponent(levelKey), { cache: 'no-store' });
+    const q = '/rest/v1/leaderboard?select=device_id,player,score,created_at'
+            + '&level=eq.' + encodeURIComponent(levelKey)
+            + '&order=score.desc,created_at.asc&limit=200';
+    const r = await fetch(SUPA_URL + q, { headers: supaHead(), cache: 'no-store' });
     if (!r.ok) return null;
     const rows = await r.json();
-    return Array.isArray(rows) ? rows : null;
+    if (!Array.isArray(rows)) return null;
+    return rows.map(x => ({ n: x.player, s: x.score, t: Date.parse(x.created_at) || 0, d: x.device_id }));
   } catch (e) { return null; }
 }
-async function pushRemoteScore(entry) {
-  if (!SCORE_API) return;
+
+// Une ligne par partie jouee : c'est la que se lit « qui a joue, quand, jusqu'ou »
+async function pushRemoteScore(run) {
+  if (!SUPA_ON) return;
   try {
-    await fetch(SCORE_API, {
+    await fetch(SUPA_URL + '/rest/v1/runs', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ level: levelKey, n: entry.n, s: entry.s, t: entry.t }),
+      headers: Object.assign(supaHead(), { Prefer: 'return=minimal' }),
+      body: JSON.stringify(run),
     });
   } catch (e) {}
 }
@@ -608,6 +632,7 @@ if (matchMedia('(prefers-reduced-motion: reduce)').matches) CFG.shake = 0;
 function reset() {
   candles = []; beat = null; coin = null; missCoin = null; particles = []; floaters = [];
   idx = 0; tick = 0; level = 560; pnl = 0; combo = 0; bestCombo = 0; lives = CFG.lives;
+  runStartMs = Date.now();
   cam = 0; camTarget = 0; camY = 130; camYSpeed = 3.2; worldT = 0; hitstop = 0; shake = 0;
   launchFx = -9; reloadAt = -9; krakenFx = -99; crashFlash = -99;
   burstLeft = 0; burstCooldown = 26; burstFx = -99;
@@ -671,7 +696,9 @@ const PATTERNS = [1, 1, 1, 1, 0.62, 0.62, 1.45];
 const hitInterval = () => clamp(lerp(CFG.beatStart, CFG.beatEnd, tick / CFG.totalTicks) * eraOf(yearOf(tick)).pace * tempoDrift, 0.62 * L.beat, 1.9 * L.beat);
 const nextStep = () => {
   if (upcoming && upcoming.burst) return 0.95 * L.beat;   // salve : cadence régulière
-  if (upcoming && upcoming.big) return flightCapFor(upcoming) + 0.06; // note ample
+  if (upcoming && upcoming.big) return flightCapFor(upcoming) + 0.06;
+  // en HARD une bougie à bonus vole au maximum : il faut la place pour les deux jetons
+  if (upcoming && upcoming.bonus && L.eth) return flightCapFor(upcoming) + 0.06; // note ample
   const dual = upcoming && upcoming.keys.length > 1 ? L.dualTime : 1; // deux touches = plus de temps
   // plafond calé sur le vol : au-delà, le jeton attendrait sur la rampe pour rien
   const maxStep = flightCapFor(upcoming) + 0.06;
@@ -768,18 +795,27 @@ function spawnBeat() {
   if (candles.length > 16) candles.shift();
   camTarget = Math.max(0, idx * SPACING - (ACTIVE_X - CHART_X0));
 
-  beat = { c, keys, pressed: {}, tThrow, flight, hitT, resolved: false, result: null, resolveT: 0, thrown: false, bonus: null,
+  beat = { c, keys, pressed: {}, tThrow, flight, hitT, resolved: false, result: null, resolveT: 0, thrown: false, bonuses: [],
     frenzy, mult: frenzyMult, pw: CFG.perfect * (frenzy ? 0.85 : 1), gw: CFG.good * (frenzy ? 0.85 : 1) };
   // jeton ₿ : seulement sur une note assez longue, et posé de façon à laisser
   // au moins 0,8 s entre son apparition et le moment de le prendre.
   if (wantBonus && airdropLeft > 0) airdropLeft--;
   if (wantBonus && flight >= 1.05) {
-    // 0,82 s de réaction garanti, quel que soit le vol
-    const pB = clamp(0.82 / flight + rand(0, 0.06), 0.5, 0.78);
     // une flèche, comme le reste du jeu, mais prise parmi celles que la cible n'utilise
     // pas — et hors fenêtre elle ne coûte jamais rien (voir press).
     const free = ['up', 'down', 'left', 'right'].filter(d => !keys.includes(d));
-    beat.bonus = { p: pB, key: free[Math.floor(Math.random() * free.length)], t: tThrow + pB * flight, done: false };
+    // 0,82 s de réaction garanti, quel que soit le vol
+    const pB = clamp(0.82 / flight + rand(0, 0.06), 0.52, 0.74);
+    const kB = free.splice(Math.floor(Math.random() * free.length), 1)[0];
+    beat.bonuses = [{ p: pB, key: kB, t: tThrow + pB * flight, done: false, kind: 'btc' }];
+    // en HARD seulement : un second jeton, l'Ethereum, plus tôt sur la trajectoire.
+    // l'écart se compte en secondes réelles (0,34 s), sinon les deux flèches
+    // tombent l'une sur l'autre sur les vols courts.
+    if (L.eth && free.length) {
+      const pE = pB - 0.34 / flight;
+      if (pE >= 0.22) beat.bonuses.unshift({ p: pE, key: free[Math.floor(Math.random() * free.length)],
+                                             t: tThrow + pE * flight, done: false, kind: 'eth' });
+    }
   }
   const yr = Math.floor(year);
   if (yr !== yearFx.year) yearFx = { year: yr, t: 0 };
@@ -1018,18 +1054,21 @@ function press(dir) {
   if (beat.type === 'panic') return panicPress(dir);
   if (beat.type === 'pump') return pumpPress(dir);
   if (worldT < beat.tThrow) return;
-  // jeton ₿ : sa flèche (ou B). Hors fenêtre, il ne se passe rien — jamais de sanction.
-  const bn = beat.bonus;
-  if (bn && !bn.done && (dir === bn.key || dir === 'bonus')) {
+  // jetons ₿ / Ξ : leur flèche (ou B). Hors fenêtre, rien — jamais de sanction.
+  // On prend le plus proche dans le temps, au cas où les deux partagent une flèche.
+  const cand = (beat.bonuses || []).filter(b => !b.done && (dir === b.key || dir === 'bonus'));
+  const bn = cand.sort((a, b) => Math.abs(worldT - a.t) - Math.abs(worldT - b.t))[0];
+  if (bn) {
     if (Math.abs(worldT - bn.t) <= CFG.bonusWindow) {
       bn.done = true;
-      const gain = Math.round(400 * (1 + combo * 0.08));
+      const eth = bn.kind === 'eth', col = eth ? PAL.eth : PAL.gold;
+      const gain = Math.round((eth ? 550 : 400) * (1 + combo * 0.08));
       pnl += gain; sfx.bonus();
       const pos = bezPoint(beat.c, bn.p);
-      burst(pos.x, pos.y, 10, PAL.gold);
-      addFloater('BONUS ' + fmt$(gain), pos.x, pos.y - 36, PAL.gold, 20);
+      burst(pos.x, pos.y, 10, col);
+      addFloater((eth ? 'ETH ' : 'BONUS ') + fmt$(gain), pos.x, pos.y - 36, col, 20);
     }
-    return; // prendre le bonus ne touche jamais au jugement de la cible
+    return; // prendre un bonus ne touche jamais au jugement de la cible
   }
   if (dir === 'bonus') return; // B sans jeton à prendre : sans effet
   const err = worldT - beat.hitT;
@@ -1056,16 +1095,26 @@ function gameEnd(won) {
   document.getElementById('endCombo').textContent = '×' + bestCombo;
   const local = saveScore(playerName || 'ANON', pnl);
   renderBoard(local, 'local');
-  // si un serveur de scores est configuré, on publie puis on réaffiche le vrai classement
+  // si Supabase est configuré, on enregistre la partie puis on réaffiche le vrai classement
   (async () => {
-    if (!SCORE_API) return;
-    await pushRemoteScore(local.entry);
+    if (!SUPA_ON) return;
+    await pushRemoteScore({
+      player: playerName || 'ANON',
+      device_id: deviceId,
+      level: levelKey,
+      score: Math.round(pnl),
+      best_combo: bestCombo,
+      year_reached: Math.floor(yearOf(Math.max(0, tick - 1))),
+      won: !!won,
+      duration_s: Math.max(0, Math.round((Date.now() - runStartMs) / 1000)),
+      device_kind: MOB ? 'mobile' : 'desktop',
+    });
     const rows = await fetchRemoteBoard();
-    if (!rows) return;
-    rows.sort((a, b) => b.s - a.s || a.t - b.t);
-    const mine = rows.findIndex(r => r.t === local.entry.t && r.n === local.entry.n);
-    renderBoard({ rank: (mine < 0 ? rows.length : mine) + 1, total: rows.length,
-                  board: rows.slice(0, 20), entry: mine >= 0 ? rows[mine] : local.entry }, 'global');
+    if (!rows || !rows.length) return;
+    let mine = rows.findIndex(r => r.d === deviceId);
+    const entry = mine >= 0 ? rows[mine] : { n: playerName || 'ANON', s: Math.round(pnl), t: Date.now() };
+    if (mine < 0) mine = rows.length;
+    renderBoard({ rank: mine + 1, total: rows.length, board: rows.slice(0, 20), entry }, 'global');
   })();
   document.getElementById('endOverlay').hidden = false;
 }
@@ -1470,9 +1519,11 @@ function render() {
     });
     if (coin) drawCoin(coin.x, coin.y, 24, coin.rot, beat.rainbow);
   }
-  // jeton ₿ bonus : visible dès la naissance de la bougie, posé juste avant la cible
-  if (beat && !beat.resolved && beat.c && beat.bonus && !beat.bonus.done) {
-    const b = beat.bonus, pos = bezPoint(beat.c, b.p);
+  // jetons bonus : visibles dès la naissance de la bougie, posés juste avant la cible
+  for (const b of (beat && !beat.resolved && beat.c ? beat.bonuses : [])) {
+    if (b.done) continue;
+    const eth = b.kind === 'eth', COL = eth ? PAL.eth : PAL.gold;
+    const pos = bezPoint(beat.c, b.p);
     const activeB = Math.abs(worldT - b.t) < CFG.bonusWindow;
     const passed = worldT > b.t + CFG.bonusWindow;
     ctx.globalAlpha = passed ? 0.2 : 1;
@@ -1481,7 +1532,7 @@ function render() {
       const rG = 16 + CFG.bonusWindow * CFG.ringSpeed;
       const rN = 16 + Math.abs(b.t - worldT) * CFG.ringSpeed;
       ctx.globalAlpha = 0.45;
-      ctx.strokeStyle = PAL.gold; ctx.lineWidth = 1.2; ctx.setLineDash([3, 4]);
+      ctx.strokeStyle = COL; ctx.lineWidth = 1.2; ctx.setLineDash([3, 4]);
       ctx.beginPath(); ctx.arc(pos.x, pos.y, rG, 0, 7); ctx.stroke(); ctx.setLineDash([]);
       if (rN < 74) {
         ctx.globalAlpha = activeB ? 1 : clamp((74 - rN) / 18, 0, 1) * 0.6;
@@ -1490,14 +1541,24 @@ function render() {
       }
       ctx.globalAlpha = 1;
     }
-    ctx.fillStyle = PAL.gold; ctx.strokeStyle = '#FFE49A'; ctx.lineWidth = 2;
+    ctx.fillStyle = COL; ctx.strokeStyle = eth ? '#D8E2FF' : '#FFE49A'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(pos.x, pos.y, 14, 0, 7); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#0A0D16'; ctx.font = '700 14px "Space Grotesk"'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('\u20BF', pos.x, pos.y + 1);
-    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#0A0D16';
+    if (eth) { // le losange Ethereum, dessiné : deux moitiés comme le vrai logo
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y - 8.5); ctx.lineTo(pos.x + 5.4, pos.y - 0.4);
+      ctx.lineTo(pos.x, pos.y + 2.9); ctx.lineTo(pos.x - 5.4, pos.y - 0.4); ctx.closePath(); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(pos.x - 5.4, pos.y + 1.4); ctx.lineTo(pos.x, pos.y + 8.5);
+      ctx.lineTo(pos.x + 5.4, pos.y + 1.4); ctx.lineTo(pos.x, pos.y + 4.4); ctx.closePath(); ctx.fill();
+    } else {
+      ctx.font = '700 14px "Space Grotesk"'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('\u20BF', pos.x, pos.y + 1);
+      ctx.textBaseline = 'alphabetic';
+    }
     // au ras du jeton, mais toujours dans l'écran
-    keycap(clamp(pos.x, 26, W - 26), clamp(pos.y - 34, HUD_H + 26, TL_TOP - 26), b.key, activeB, 19, PAL.gold);
-    if (activeB) { ctx.strokeStyle = PAL.gold; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(pos.x, pos.y, 24, 0, 7); ctx.stroke(); }
+    keycap(clamp(pos.x, 26, W - 26), clamp(pos.y - 34, HUD_H + 26, TL_TOP - 26), b.key, activeB, 19, COL);
+    if (activeB) { ctx.strokeStyle = COL; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(pos.x, pos.y, 24, 0, 7); ctx.stroke(); }
     ctx.globalAlpha = 1;
   }
   // Salve : trois tirs annoncés, on voit combien il en reste
@@ -1927,13 +1988,17 @@ addEventListener('keydown', e => {
   const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
   if (KEYMAP[k]) e.preventDefault();
   if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (err) {} }
-  if (k === 'm') { muted = !muted; if (musicGain) musicGain.gain.value = muted ? 0 : 0.18; return; }
+  if (k === 'm') { muted = !muted; if (musicGain) musicGain.gain.value = muted ? 0 : 0.2; return; }
   if (k === 't') { toggleTune(); return; }
   if (k === 'Escape' && !document.getElementById('tune').hidden) { toggleTune(false); return; }
   // Esc ramène à l'accueil, depuis n'importe où
   if (k === 'Escape' && state !== 'start') { e.preventDefault(); goHome(); return; }
   // N relance une partie immédiatement, au même niveau
   if (k === 'n' && state !== 'start') { e.preventDefault(); startGame(levelKey); return; }
+  // 1 et 2 changent de niveau et relancent, même au milieu d'une partie
+  if ((k === '1' || k === '2') && (state === 'play' || state === 'pause')) {
+    e.preventDefault(); startGame(k === '2' ? 'hard' : 'normal'); return;
+  }
   if (k === ' ' && (state === 'play' || state === 'pause')) {
     e.preventDefault();
     state = state === 'play' ? 'pause' : 'play';
@@ -1946,13 +2011,7 @@ addEventListener('keydown', e => {
     return;
   }
   if (state === 'start') {
-    // les flèches choisissent le niveau sans lancer : espace lance
-    if (k === 'ArrowLeft' || k === 'ArrowRight') {
-      e.preventDefault();
-      applyLevel(k === 'ArrowLeft' ? 'normal' : 'hard');
-      loadBest();
-      return;
-    }
+    if (k === 'ArrowLeft' || k === 'ArrowRight') { e.preventDefault(); return; }
     if (k === '1' || k === '2' || k === ' ' || k === 'Enter') {
       e.preventDefault();
       startGame(k === '2' ? 'hard' : k === '1' ? 'normal' : levelKey);
@@ -1960,13 +2019,9 @@ addEventListener('keydown', e => {
     return;
   }
   if (state === 'over' || state === 'win') {
-    // les flèches choisissent le niveau sans relancer ; espace relance
-    if (k === 'ArrowLeft' || k === 'ArrowRight') {
-      e.preventDefault();
-      applyLevel(k === 'ArrowLeft' ? 'normal' : 'hard');
-      loadBest();
-      return;
-    }
+    // les flèches ne touchent plus au niveau : après une partie on appuie encore
+    // dessus par réflexe, et le niveau changeait dans le dos du joueur.
+    if (k === 'ArrowLeft' || k === 'ArrowRight') { e.preventDefault(); return; }
     if (k === 'r' || k === ' ' || k === 'Enter' || k === '1' || k === '2') {
       e.preventDefault();
       startGame(k === '2' ? 'hard' : k === '1' ? 'normal' : levelKey);
