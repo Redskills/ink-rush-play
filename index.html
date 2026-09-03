@@ -1172,58 +1172,46 @@ function drawLauncher() {
 
 // Les tentacules arc-en-ciel, dessinées après tout le reste : elles traversent la
 // frise et atteignent le bas de l'écran, comme sur la maquette.
-// Recoloration exacte : on empile l'image des tentacules dans un canvas tampon pour
-// obtenir une forme franche, puis on la teinte en arc-en-ciel (source-in). La découpe
-// est celle du PNG lui-même — impossible de déborder d'un demi-pixel.
-// Le tampon est construit UNE SEULE FOIS, puis simplement redimensionné à l'affichage.
-// Le reconstruire à chaque image (7 dessins + dégradé) faisait ramer le jeu.
-let fxCv = null;
-function buildRainbowTrails() {
-  const iw = krakenImg.naturalWidth, ih = krakenImg.naturalHeight;
-  const cv2 = document.createElement('canvas');
-  cv2.width = 288; cv2.height = 900;            // large marge : on ne fait que réduire ensuite
-  const c2 = cv2.getContext('2d');
-  for (let i = 0; i < 7; i++)                    // l'image est à 30 % : on l'empile
-    c2.drawImage(krakenImg, 0, KRAKEN_HEAD_PX, iw, ih - KRAKEN_HEAD_PX, 0, 0, cv2.width, cv2.height);
-  c2.globalCompositeOperation = 'source-in';
-  const g = c2.createLinearGradient(0, 0, 0, cv2.height);
-  g.addColorStop(0.00, '#7032ED');
-  g.addColorStop(0.18, '#C84BCE');
-  g.addColorStop(0.40, '#4F6BF5');
-  g.addColorStop(0.58, '#35B3BF');
-  g.addColorStop(0.76, '#41D550');
-  g.addColorStop(1.00, '#E4C950');
-  c2.fillStyle = g; c2.fillRect(0, 0, cv2.width, cv2.height);
-  fxCv = cv2;
-}
-function paintRainbowTrails(x, top, w, h) {
-  if (!fxCv) buildRainbowTrails();
-  ctx.drawImage(fxCv, x, top, w, h);            // une seule opération par image
+// Les tentacules sont redessinées à l'identique dans les deux états, par le MÊME code.
+// Plus aucune différence de largeur possible : c'est la même géométrie, au pixel près.
+// Positions relevées dans le PNG : x = 16 / 60 / 104 / 152, largeur 20, sur 188.
+const LEG_X = [16, 60, 104, 152], LEG_W = 20, LEG_SRC = 188;
+function paintTrails(x, w, top, bottom, grad) {
+  ctx.fillStyle = grad;
+  const bw = w * (LEG_W / LEG_SRC);
+  for (const lx of LEG_X) ctx.fillRect(x + w * (lx / LEG_SRC), top, bw, bottom - top);
 }
 
 function drawKrakenBands() {
   const b = krakenBand;
   if (!b || !krakenImg.complete || !krakenImg.naturalWidth) return;
-  const iw = krakenImg.naturalWidth, ih = krakenImg.naturalHeight;
+  const iw = krakenImg.naturalWidth;
   ctx.save();
-  // tentacules normales : étirées jusqu'au bas de l'écran, elles s'y dissolvent
-  if (b.rise < 0.995) {
+  // les brins remontent sous le dôme : la jonction est couverte, effet fusée continu
+  const top = b.top - b.hh * 0.45;
+
+  if (b.rise < 0.995) { // au repos : le violet du logo qui se dissout vers le bas
+    const g = ctx.createLinearGradient(0, top, 0, H);
+    g.addColorStop(0.00, 'rgba(112,50,237,0.34)');
+    g.addColorStop(0.45, 'rgba(109,83,225,0.20)');
+    g.addColorStop(1.00, 'rgba(109,83,225,0)');
     ctx.globalAlpha = 1 - b.rise;
-    ctx.drawImage(krakenImg, 0, KRAKEN_HEAD_PX, iw, ih - KRAKEN_HEAD_PX,
-                  b.x, b.top - 1, b.w, H - b.top + 1);
+    paintTrails(b.x, b.w, top, H, g);
     ctx.globalAlpha = 1;
   }
-  if (b.rise <= 0.005) {
-    ctx.drawImage(krakenImg, 0, 0, iw, KRAKEN_HEAD_PX, b.x, b.headTop, b.w, b.hh);
-    ctx.restore();
-    return;
+  if (b.rise > 0.005) { // pendant le salut : les couleurs d'Ink, pleine opacité
+    const g = ctx.createLinearGradient(0, top, 0, H);
+    g.addColorStop(0.00, '#7032ED');
+    g.addColorStop(0.18, '#C84BCE');
+    g.addColorStop(0.40, '#4F6BF5');
+    g.addColorStop(0.58, '#35B3BF');
+    g.addColorStop(0.76, '#41D550');
+    g.addColorStop(1.00, '#E4C950');
+    ctx.globalAlpha = b.rise;
+    paintTrails(b.x, b.w, top, H, g);
+    ctx.globalAlpha = 1;
   }
-  ctx.globalAlpha = b.rise;
-  // les brins remontent sous le dôme : jonction couverte, effet fusée continu
-  const ov = b.hh * 0.45;
-  paintRainbowTrails(b.x, b.top - ov, b.w, H - b.top + ov);
-  ctx.globalAlpha = 1;
-  // la tête par-dessus : la jonction reste parfaite
+  // la tête par-dessus : elle recouvre le raccord
   ctx.drawImage(krakenImg, 0, 0, iw, KRAKEN_HEAD_PX, b.x, b.headTop, b.w, b.hh);
   ctx.restore();
 }
@@ -1314,7 +1302,17 @@ function render() {
     // touches demandées : visibles dès le début, en veille, puis allumées dans la fenêtre
     const near = inZone;
     beat.keys.forEach((k, i) => {
-      const kx = Math.min(x + 84 + i * 62, W - 46), ky = clamp(ty - 8, 60, 840);
+      // bornée à l'aire de jeu : jamais cachée par le bandeau ni par la frise
+      const kx = clamp(x + 84 + i * 62, 46, W - 46);
+      const ky = clamp(ty - 8, 79 + 34, 800 - 34);
+      ctx.globalAlpha = thrown ? 1 : 0.55;
+      // si la touche a dû être repoussée, un trait discret la relie à la cible
+      if (Math.abs(ky - (ty - 8)) > 6) {
+        ctx.globalAlpha = 0.3; ctx.strokeStyle = PAL.purpleHi; ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 4]);
+        ctx.beginPath(); ctx.moveTo(kx, ky); ctx.lineTo(x, clamp(ty, 79, 800)); ctx.stroke();
+        ctx.setLineDash([]);
+      }
       ctx.globalAlpha = thrown ? 1 : 0.55;
       keycap(kx, ky, k, near);
       ctx.globalAlpha = 1;
@@ -1347,7 +1345,8 @@ function render() {
     ctx.fillStyle = '#0A0D16'; ctx.font = '700 14px "Space Grotesk"'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText('\u20BF', pos.x, pos.y + 1);
     ctx.textBaseline = 'alphabetic';
-    keycap(pos.x, pos.y - 34, b.key, activeB, 19, PAL.gold); // au ras du jeton : on voit quoi presser
+    // au ras du jeton, mais toujours dans l'écran
+    keycap(clamp(pos.x, 26, W - 26), clamp(pos.y - 34, 79 + 26, 800 - 26), b.key, activeB, 19, PAL.gold);
     if (activeB) { ctx.strokeStyle = PAL.gold; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(pos.x, pos.y, 24, 0, 7); ctx.stroke(); }
     ctx.globalAlpha = 1;
   }
