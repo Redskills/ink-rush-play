@@ -8,51 +8,7 @@
   html, body, canvas { touch-action: none; -webkit-user-select: none; user-select: none;
                        -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
   /* écran de rotation : le jeu se joue à l'horizontale */
-  /* --- Portrait sur mobile : tout le paramétrage tient ici, il y a la place --- */
-  #rotate {
-    position: fixed; inset: 0; z-index: 40; display: none;
-    background: #06080F; color: #E8EAF2; text-align: center;
-    flex-direction: column; align-items: center; justify-content: center;
-    gap: 18px; padding: 24px; overflow-y: auto;
-  }
-  body.portrait.touch #rotate { display: flex; }
-  #rotate h1 { font-size: 34px; letter-spacing: 2px; margin: 0; }
-  #rotate h1 .ink { color: #A895FF; }
-  #rotate .rule { font-size: 16px; line-height: 1.5; color: #C9CDDC; margin: 0; max-width: 340px; }
-  #rotate .levels { flex-direction: column; width: 100%; max-width: 320px; margin: 0; }
-  #rotate .levels button { max-width: none; }
-  #rotate .turn { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 6px; }
-  #rotate .turn span { font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 2px; color: #00D68F; }
-  @keyframes tilt { 0%, 55% { transform: rotate(0deg); } 80%, 100% { transform: rotate(-90deg); } }
-  #rotate .turn svg { animation: tilt 2.4s ease-in-out infinite; }
 
-  /* --- Le tutoriel de glissement, en paysage avant de jouer --- */
-  #swipeIntro {
-    position: fixed; inset: 0; z-index: 35; display: none;
-    background: #06080FF2; color: #E8EAF2; text-align: center;
-    flex-direction: column; align-items: center; justify-content: center; gap: 3vh;
-  }
-  body.swipeintro #swipeIntro { display: flex; }
-  #swipeIntro .t { font-size: clamp(18px, 5.2vh, 30px); font-weight: 700; letter-spacing: 1px; }
-  #swipeIntro .s { font-family: 'IBM Plex Mono', monospace; font-size: clamp(10px, 2.6vh, 14px);
-                   letter-spacing: 2px; color: #6B7390; }
-  #swipeIntro .go { font-family: 'IBM Plex Mono', monospace; font-size: clamp(11px, 2.8vh, 15px);
-                    letter-spacing: 2px; color: #00D68F; }
-  .demo { position: relative; width: clamp(180px, 46vh, 300px); height: clamp(70px, 18vh, 116px); }
-  .demo .track { position: absolute; inset: 0; border: 2px dashed #2A2350; border-radius: 16px; }
-  .demo .dot {
-    position: absolute; top: 50%; left: 0; width: clamp(24px, 6vh, 38px); height: clamp(24px, 6vh, 38px);
-    margin-top: calc(clamp(24px, 6vh, 38px) / -2); border-radius: 50%; background: #7C5CFF;
-    box-shadow: 0 0 0 4px #7C5CFF33; animation: swipeDemo 2.2s ease-in-out infinite;
-  }
-  @keyframes swipeDemo {
-    0%   { left: 6%;  opacity: 0; }
-    12%  { left: 6%;  opacity: 1; }
-    55%  { left: calc(94% - clamp(24px, 6vh, 38px)); opacity: 1; }
-    72%  { left: calc(94% - clamp(24px, 6vh, 38px)); opacity: 0; }
-    100% { left: 6%;  opacity: 0; }
-  }
-  .demo .arrow { position: absolute; top: 50%; right: 8%; transform: translateY(-50%); }
   body { margin: 0; background: #06080F; overflow: hidden; font-family: 'Space Grotesk', 'Helvetica Neue', Arial, sans-serif; }
   canvas { display: block; }
   [hidden] { display: none !important; }
@@ -83,6 +39,19 @@
   .levels button b { display: block; font-size: 15px; letter-spacing: 1px; color: #E8EAF2; margin-bottom: 3px; }
   .levels button span { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #6B7390; }
   .levels button .k { float: right; color: #A895FF; font-size: 11px; }
+  /* Démonstration du geste, sur l'écran d'accueil */
+  .demo { position: relative; width: min(78vw, 300px); height: 64px; margin: 14px auto 4px auto; }
+  .demo .track { position: absolute; inset: 0; border: 2px dashed #2A2350; border-radius: 16px; }
+  .demo .dot { position: absolute; top: 50%; left: 0; width: 30px; height: 30px; margin-top: -15px;
+               border-radius: 50%; background: #7C5CFF; box-shadow: 0 0 0 4px #7C5CFF33;
+               animation: swipeDemo 2.2s ease-in-out infinite; }
+  @keyframes swipeDemo {
+    0% { left: 6%; opacity: 0; } 12% { left: 6%; opacity: 1; }
+    55% { left: calc(94% - 30px); opacity: 1; }
+    72% { left: calc(94% - 30px); opacity: 0; } 100% { left: 6%; opacity: 0; }
+  }
+  .demo .arrow { position: absolute; top: 50%; right: 8%; transform: translateY(-50%); }
+  .demoCap { font-size: 15px; color: #C9CDDC; margin: 2px 0 0 0; }
   .nameRow { display: flex; align-items: center; gap: 12px; justify-content: center; margin-top: 28px; }
   .nameRow label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 2px; color: #6B7390; }
   .nameRow input {
@@ -124,7 +93,12 @@
   :focus-visible { outline: 2px solid #A895FF; outline-offset: 2px; }
   /* Tactile : moins de texte, mais bien plus lisible */
   @media (pointer: coarse) {
-    .overlay .card { padding: 18px; max-width: 620px; }
+    .overlay { align-items: center; }
+    .overlay .card { padding: 10px 16px; max-width: 620px; max-height: 100%; overflow-y: auto; }
+    .demo { height: 58px; margin: 10px auto 2px auto; }
+    .demoCap { font-size: 14px; }
+    .nameRow { margin-top: 14px; }
+    .levels { margin: 14px 0 2px 0; }
     .overlay h1 { font-size: 40px; margin-bottom: 2px; }
     .overlay .sub { font-size: 12px; margin-bottom: 14px; }
     .overlay p { font-size: 19px; line-height: 1.45; margin: 6px 0; }
@@ -144,6 +118,7 @@
     .levels button span { font-size: 13px; }
     .hideOnTouch { display: none !important; }
     .showOnTouch[hidden] { display: block !important; }
+    .demoCap b { color: #A895FF; }
   }
 
   /* Paysage téléphone : très peu de hauteur, on compacte tout */
@@ -172,38 +147,6 @@
 
 </style>
 
-<div id="rotate">
-  <h1><span class="ink">INK</span> RUSH</h1>
-  <p class="rule">Swipe in the direction of the arrow, exactly when the INK token reaches the tip of the candle.</p>
-  <div class="nameRow">
-    <label for="pseudoM">PLAYER</label>
-    <input id="pseudoM" type="text" maxlength="14" placeholder="your name" autocomplete="off" spellcheck="false">
-  </div>
-  <div class="levels">
-    <button id="lvNormalM" type="button"><b>NORMAL</b><span>more time, 4 lives</span></button>
-    <button id="lvHardM" type="button"><b>HARD</b><span>fast, tight, 3 lives</span></button>
-  </div>
-  <div class="turn">
-    <svg width="58" height="58" viewBox="0 0 86 86" fill="none">
-      <rect x="24" y="8" width="38" height="66" rx="7" stroke="#7C5CFF" stroke-width="3"/>
-    </svg>
-    <span>TURN YOUR PHONE SIDEWAYS TO PLAY</span>
-  </div>
-</div>
-
-<div id="swipeIntro">
-  <div class="t">Swipe the way the arrow points</div>
-  <div class="demo">
-    <div class="track"></div>
-    <div class="dot"></div>
-    <svg class="arrow" width="34" height="34" viewBox="0 0 34 34" fill="none">
-      <path d="M6 17h20M20 9l8 8-8 8" stroke="#A895FF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-  </div>
-  <div class="s">UP &middot; DOWN &middot; LEFT &middot; RIGHT &nbsp;·&nbsp; DIAGONAL FOR TWO AT ONCE</div>
-  <div class="go" id="swipeGo">TAP TO START</div>
-</div>
-
 <canvas id="game" aria-label="Ink Rush — keyboard timing game"></canvas>
 
 <div class="overlay" id="startOverlay">
@@ -217,6 +160,16 @@
     <p class="small hideOnTouch" style="color: #FF4D5E;">When it screams PANIC SELL, run the arrow sequence in order.</p>
     <p class="small" id="hintKeys">Arrow keys or WASD &middot; sometimes two at once<br>Space pause &middot; N new run &middot; Esc menu &middot; M mute &middot; T tuning</p>
     <p class="small" id="hintTouch" hidden>Swipe up, down, left or right &middot; swipe diagonally for two at once<br>Tap fast when the game asks for it</p>
+    <div class="showOnTouch" hidden>
+      <div class="demo">
+        <div class="track"></div>
+        <div class="dot"></div>
+        <svg class="arrow" width="30" height="30" viewBox="0 0 34 34" fill="none">
+          <path d="M6 17h20M20 9l8 8-8 8" stroke="#A895FF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <p class="demoCap"><b>Slide your finger</b> across the screen, in the direction the arrow points.</p>
+    </div>
     <div class="nameRow">
       <label for="pseudo">PLAYER</label>
       <input id="pseudo" type="text" maxlength="14" placeholder="your name" autocomplete="off" spellcheck="false">
@@ -226,7 +179,7 @@
       <button id="lvHard" type="button"><b>HARD <span class="k">2</span></b><span>fast, tight, 3 lives</span></button>
     </div>
     <div class="go hideOnTouch">&larr; &rarr; TO CHOOSE &middot; SPACE TO START</div>
-    <div class="go showOnTouch" hidden>TAP A LEVEL TO START</div>
+    <div class="go showOnTouch" hidden>PICK A LEVEL &middot; THEN <b>DOUBLE TAP</b> TO START</div>
   </div>
 </div>
 
@@ -244,7 +197,7 @@
       <button id="lvHardEnd" type="button"><b>HARD <span class="k">2</span></b><span>fast, tight, 3 lives</span></button>
     </div>
     <div class="go hideOnTouch">&larr; &rarr; TO CHOOSE &middot; SPACE TO PLAY AGAIN &middot; ESC FOR MENU</div>
-    <div class="go showOnTouch" hidden>TAP A LEVEL TO PLAY AGAIN</div>
+    <div class="go showOnTouch" hidden>PICK A LEVEL &middot; THEN <b>DOUBLE TAP</b> TO PLAY AGAIN</div>
   </div>
 </div>
 
@@ -407,26 +360,41 @@ const EVENTS = [
 powellImg.src = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD/4QCGRXhpZgAATU0AKgAAAAgAAwEOAAIAAAAOAAAAMgEyAAIAAAAUAAAAQIdpAAQAAAABAAAAVAAAAABqZXJvbWUgcG93ZWxsADIwMjQ6MDg6MDUgMTU6MzI6MDEAAAOgAQADAAAAAQABAACgAgAEAAAAAQAAAjCgAwAEAAAAAQAAATsAAAAA/+ELp2h0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8APD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iWE1QIENvcmUgNi4wLjAiPiA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPiA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIiB4bWxuczpwaG90b3Nob3A9Imh0dHA6Ly9ucy5hZG9iZS5jb20vcGhvdG9zaG9wLzEuMC8iIHhtbG5zOklwdGM0eG1wRXh0PSJodHRwOi8vaXB0Yy5vcmcvc3RkL0lwdGM0eG1wRXh0LzIwMDgtMDItMjkvIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtbG5zOmRjPSJodHRwOi8vcHVybC5vcmcvZGMvZWxlbWVudHMvMS4xLyIgcGhvdG9zaG9wOkhlYWRsaW5lPSJqZXJvbWUgcG93ZWxsIiBwaG90b3Nob3A6Q2FwdGlvbldyaXRlcj0iaW9PIiBJcHRjNHhtcEV4dDpIZWFkbGluZT0iamVyb21lIHBvd2VsbCIgeG1wOk1vZGlmeURhdGU9IjIwMjQtMDgtMDVUMTU6MzI6MDEiPiA8ZGM6c3ViamVjdD4gPHJkZjpCYWc+IDxyZGY6bGk+RW4gVnVlPC9yZGY6bGk+IDxyZGY6bGk+TGVzIEVjaG9zPC9yZGY6bGk+IDxyZGY6bGk+Y2FyaWNhdHVyZTwvcmRmOmxpPiA8cmRmOmxpPmlvTzwvcmRmOmxpPiA8cmRmOmxpPmplcm9tZSBwb3dlbGw8L3JkZjpsaT4gPC9yZGY6QmFnPiA8L2RjOnN1YmplY3Q+IDxkYzpkZXNjcmlwdGlvbj4gPHJkZjpBbHQ+IDxyZGY6bGkgeG1sOmxhbmc9IngtZGVmYXVsdCI+amVyb21lIHBvd2VsbDwvcmRmOmxpPiA8L3JkZjpBbHQ+IDwvZGM6ZGVzY3JpcHRpb24+IDwvcmRmOkRlc2NyaXB0aW9uPiA8L3JkZjpSREY+IDwveDp4bXBtZXRhPiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIDw/eHBhY2tldCBlbmQ9InciPz4A/+0AtlBob3Rvc2hvcCAzLjAAOEJJTQQEAAAAAAB9HAFaAAMbJUccAgAAAgACHAIZAAZFbiBWdWUcAhkACUxlcyBFY2hvcxwCGQAKY2FyaWNhdHVyZRwCGQADaW9PHAIZAA1qZXJvbWUgcG93ZWxsHAJpAA1qZXJvbWUgcG93ZWxsHAJ6AANpb08cAngADWplcm9tZSBwb3dlbGwAOEJJTQQlAAAAAAAQileBz1lnK4djcCHVxhevpf/CABEIATsCMAMBIgACEQEDEQH/xAAfAAABBQEBAQEBAQAAAAAAAAADAgQBBQAGBwgJCgv/xADDEAABAwMCBAMEBgQHBgQIBnMBAgADEQQSIQUxEyIQBkFRMhRhcSMHgSCRQhWhUjOxJGIwFsFy0UOSNIII4VNAJWMXNfCTc6JQRLKD8SZUNmSUdMJg0oSjGHDiJ0U3ZbNVdaSVw4Xy00Z2gONHVma0CQoZGigpKjg5OkhJSldYWVpnaGlqd3h5eoaHiImKkJaXmJmaoKWmp6ipqrC1tre4ubrAxMXGx8jJytDU1dbX2Nna4OTl5ufo6erz9PX29/j5+v/EAB8BAAMBAQEBAQEBAQEAAAAAAAECAAMEBQYHCAkKC//EAMMRAAICAQMDAwIDBQIFAgQEhwEAAhEDEBIhBCAxQRMFMCIyURRABjMjYUIVcVI0gVAkkaFDsRYHYjVT8NElYMFE4XLxF4JjNnAmRVSSJ6LSCAkKGBkaKCkqNzg5OkZHSElKVVZXWFlaZGVmZ2hpanN0dXZ3eHl6gIOEhYaHiImKkJOUlZaXmJmaoKOkpaanqKmqsLKztLW2t7i5usDCw8TFxsfIycrQ09TV1tfY2drg4uPk5ebn6Onq8vP09fb3+Pn6/9sAQwAEBAQEBAQIBAQICwgICAsPCwsLCw8SDw8PDw8SFhISEhISEhYWFhYWFhYWGxsbGxsbHx8fHx8jIyMjIyMjIyMj/9sAQwEFBgYJCAkPCAgPJBkUGSQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk/9oADAMBAAIRAxEAAAH3/bVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVtk0rRqnRqnRqnJmp21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bZNKSy4oXb89zVpFDVy3obZ9VQtrFiKu0sfM+zNeqAWlbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq0bUDj01IMPqXzU3qPK0sitqx+hXrK+zq2V8Tnylez6zyu8j7Q64uzA7olFemnRNbbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21Ry9/wCRiFz6OlXXjeu6JePVX2QzZ6ZK5Baw4QCzq+hzL5pQ+zcZtzcp3vnfYb81l7D89+zAdROk221bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVtGqk8b9Z86V7B9G5fQlwyKrvVi0DIEgE6BJipSUiWiMR51U+hc718HP+s+c+oPj6HtiNoVW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21RpiuW4zp+Yy6H4Yq8Ou5sq8ql2JaYjSVNAS4ICzK6YxS3MCJG7l9ty8NZOmPRxe3TsRp2rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbaohUV5xXKRl01PCdpwqa+ndF8++2I1xKDJqGE0tWfP+WstMvYL7y70BNHgnrJNF3lBb64K5y+Y9Xn+nShZE7attq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq0bV4vyfsHni6GJz3O49XQo5y8Zbzs/BKgj0qlHbg1JSuoL1jcJrX3/AIs10x95Y87dYdLyx4nrOzzfW1IJDbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbatExVJWsOQx6+98r9A46iPot00pK7pqIPRX18cXl3WVvUsvGL7JBHB03oNSmnB9G8eMvA2HQNdMrLtuO7o5ekTxHaNmuYzJO2rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq20VyHPei8Nn1UB7Dkcul3znRPweK6C15wH0llzwVnfIW52Ds/OVcO355x1Qoqn9QmzHp+Nu9MrqoRyaa9D7R4/6xvx3W234ttq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq1TbJB86rrepw7q063GPQDnLx9HlHXRnI4Oy62qDNbJhZJIqRrM5qbGnaZ9Zz98VG0Vfstz3Onp83bZk22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rROrn+b9Cr89/Posa/l7ud6fiyE96woKkr37SgeKxjJyPVucUzSiuaxxdV3TrAp/ReD9b25F7bo49tq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbatExXF8+9ruP0qxFrSLsh8ati5qrOwgGyOECvUGwjSFbd7pjVG9G23LVWu2nPO2NttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVkqiuCofTvLcO1zTW0ZdAGSnqaWFJY0xrM1PYgP2jarKx7NV9R1efO20x22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbatExWrLPV4tz/AFfEY91m65SM972ubYi1Gysga/qBVOnP9GLpbrbi22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattqjSmgeWcNQtddYt/R8t/L2XW0nN36p6LUKyuIzZ55Z718493l2v0X8gdmyfS+5DroTtq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rbattq22rUt15/XhgXjFr0j1vyn1ZG49p2XJ8/ZU3UP8uhte6z3423yt9L/ADDvzOThhq/9F8ztBfS8tHYG21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21R5F674TXAN5r2vaPTvOvSEI65/4gWtOi8Kr93+w55++58uL8M9U87NTa1Gw3S0XSg+52tbZAbbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21aJig/PH0F84NcyzfMmve+64i+yNLxnsDBn+Yerpvaeia+hMA8y+R8zY1ZUrZJDOOt5jto+yOwmUbbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21bbVttW21aJ1V/zj9E+E9T8aytQm9t62l6HjXaW8fnP23w/3Pobq6y1Y86fOzFMuHaDEq9ueW7gH1ooyAbbVttW21bbVttW21bbVttW21bbVttW21f/aAAgBAQABBQL/AJZYuZKHJf1fvdw/0jcNdxelpnuy0XO5oKdxnS4LyO4dSP8Af3JOlAn3RSlCKec+4xhrit4xHe2amu6QlIvIgtV2iF295DK5E4Ls7oXCE8P9+65ExibcsiTJIx7tZiXcs0q3CSovVuadC1iUmeOUUTdYxomxjinPuthKEk3YARchSkmv+/a8wuFoSEue+htBLe3Nwq15wabaeSOLbjGk7cQPc5An3KRBMaiV6vn1NrcUXBfQlHvEUgtZgf8AfruVwURzTGFM1/LM0WU064LFKGLaMMBKexAeKXy0F8iEOTbreRybZJEZEFDhKai1ikjROuJaK0/35TL5calkSXFbqWGzSghKUurq6Ojp90pq76wC3VUCttvAqW5mAk2+4M8f+/K+VjFdSLXdW1uiBHDsAksaOrqO1e9eyhUbhAQbWsMt8CLrbSpNz/vyvqqMceVy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';
 
 // ---- Monde virtuel 1440x900, mis à l'échelle de la fenêtre ----
-const W = 1440, H = 900;
 // sur tactile, l'écran est petit : on grossit l'essentiel et on retire le décoratif
 const MOB = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
-const ZOOM = 0.95; // vue légèrement dézoomée : on voit plus de graphique
-const CHART_TOP = 130, CHART_BOT = 700, ACTIVE_X = 920, SPACING = 88, BODY_W = 34;
+const clampN = (v, a, b) => Math.max(a, Math.min(b, v));
+// Le monde s'adapte à l'écran : 1440×900 sur ordinateur, portrait plein cadre sur
+// téléphone — aucune bande noire, on occupe toute la hauteur.
+let W = 1440, H = 900;
+if (MOB) {
+  W = 820;
+  H = Math.round(clampN(820 * (Math.max(innerHeight, 1) / Math.max(innerWidth, 1)), 900, 2100));
+}
+const ZOOM = MOB ? 1 : 0.95;
+// Toute la mise en page découle de W et H : rien n'est figé.
+const HUD_H = MOB ? 104 : 78;
+const SCRIM_L = MOB ? 150 : 250, SCRIM_R = MOB ? 130 : 300;
+const TL_H = MOB ? 128 : 100;
+const TL_TOP = H - TL_H;
+const CX = W / 2;
+const CHART_TOP = 130, CHART_BOT = 700;
+const ACTIVE_X = Math.round(W * (MOB ? 0.60 : 0.639));
+const SPACING = MOB ? 72 : 88, BODY_W = MOB ? 30 : 34;
 // origine du graphique : bien au-delà du dégradé de gauche, pour que la 1re bougie se voie
-const CHART_X0 = 440;
+const CHART_X0 = Math.round(W * (MOB ? 0.34 : 0.306));
 // Launcher : le dôme fait 2× le jeton (96 px). Les tentacules descendent au-delà de
 // la ligne du bas et passent derrière le bandeau de la frise : le logo est posé sur
 // la ligne au lieu de s'évanouir en plein vide.
-const LAUNCH_W = 96, LAUNCH_H = LAUNCH_W * 444 / 188;
+const LAUNCH_W = MOB ? 78 : 96, LAUNCH_H = LAUNCH_W * 444 / 188;
 const LAUNCH_HEAD_H = LAUNCH_W * 148 / 188;
 // La grille de prix est FIXE à l'écran (comme sur un vrai graphique : ce sont les
 // paliers qui défilent, pas les lignes). Du coup le launcher repose exactement sur la
 // dernière ligne avant la frise, une bonne fois pour toutes.
-const GRID_BASE = 780, GRID_STEP = 100;
+const GRID_BASE = TL_TOP - 20, GRID_STEP = MOB ? 112 : 100;
 const launchBase = GRID_BASE;
 // Le point de lancement est FIXE. L'animation du calamar ne doit jamais le déplacer,
 // sinon la trajectoire du jeton saute en plein vol.
-const LAUNCH = { x: 76, y: GRID_BASE - (LAUNCH_H - LAUNCH_HEAD_H) - LAUNCH_HEAD_H / 2 };
+const LAUNCH = { x: MOB ? 58 : 76, y: GRID_BASE - (LAUNCH_H - LAUNCH_HEAD_H) - LAUNCH_HEAD_H / 2 };
 
 const cv = document.getElementById('game');
 const ctx = cv.getContext('2d');
@@ -817,7 +785,7 @@ function spawnBeat() {
   if (yr !== yearFx.year) yearFx = { year: yr, t: 0 };
   if (era.label !== lastEraLabel) { // annonce du changement d'époque
     lastEraLabel = era.label;
-    addFloater(era.label, 720, 640, era.bias >= 0.5 ? PAL.green : PAL.red, 40);
+    addFloater(era.label, CX, 640, era.bias >= 0.5 ? PAL.green : PAL.red, 40);
     beep(era.bias >= 0.5 ? 660 : 240, 0.14, 'triangle', 0.14);
   }
   // FOMO RUSH : rare, et seulement porté par une vraie série de bougies vertes
@@ -941,7 +909,7 @@ function pumpPress(dir) {
   pnl += gain;
   beat.earned = (beat.earned || 0) + gain;
   // le gain de CETTE frappe s'envole à l'écran, de plus en plus gros et doré
-  addFloater(fmt$(gain), 720 + rand(-90, 90), 292 + rand(-14, 14),
+  addFloater(fmt$(gain), CX + rand(-90, 90), 292 + rand(-14, 14),
              beat.count > 10 ? PAL.gold : PAL.green, 15 + Math.min(19, beat.count * 1.2));
   shake = Math.max(shake, 2.5 * CFG.shake);
   beep(Math.min(1100, 320 + beat.count * 34), 0.05, 'triangle', 0.16);
@@ -954,13 +922,13 @@ function resolvePump() {
   if (beat.count >= CFG.pumpTarget) {
     const bonus = Math.round(600 * (1 + combo * 0.08));
     pnl += bonus; combo++; bestCombo = Math.max(bestCombo, combo);
-    sfx.perfect(); burst(720, 380, 16, PAL.green);
+    sfx.perfect(); burst(CX, 380, 16, PAL.green);
     // le total affiché est exactement ce qui a été encaissé
-    addFloater('RALLIED  ' + fmt$(earned + bonus), 720, 400, PAL.gold, 26);
+    addFloater('RALLIED  ' + fmt$(earned + bonus), CX, 400, PAL.gold, 26);
   } else if (beat.count >= 6) {
-    addFloater('NICE RALLY  ' + fmt$(earned), 720, 400, PAL.green, 21);
+    addFloater('NICE RALLY  ' + fmt$(earned), CX, 400, PAL.green, 21);
   } else {
-    addFloater('CLOSED  ' + fmt$(earned), 720, 400, PAL.muted, 18);
+    addFloater('CLOSED  ' + fmt$(earned), CX, 400, PAL.muted, 18);
   }
   if (tick >= CFG.totalTicks && finaleUntil <= 0) return gameEnd(true);
   nextHitAt = worldT + 1.1;
@@ -1000,7 +968,7 @@ function panicPress(dir) {
     const g = Math.round((60 + beat.count * 14) * (1 + combo * 0.05));
     pnl += g;
     beat.earned = (beat.earned || 0) + g;
-    addFloater(fmt$(g), 720 + rand(-90, 90), 292 + rand(-14, 14), PAL.red, 15 + Math.min(15, beat.count));
+    addFloater(fmt$(g), CX + rand(-90, 90), 292 + rand(-14, 14), PAL.red, 15 + Math.min(15, beat.count));
     shake = Math.max(shake, 3 * CFG.shake);
     beep(Math.max(180, 520 - beat.count * 18), 0.05, 'square', 0.15);
     if (beat.count % 3 === 0) dropRedCandle(); // tous les 3 appuis, une bougie rouge tombe
@@ -1023,7 +991,7 @@ function panicPress(dir) {
 
 function resolvePanic(seqComplete) {
   beat.resolved = true;
-  const x = 720;
+  const x = CX;
   const isMash = beat.mode === 'mash';
   const full = isMash ? beat.count >= CFG.panicTarget : seqComplete;
   const partial = isMash ? beat.count >= 6 : beat.pos >= beat.seq.length * 0.7;
@@ -1181,7 +1149,7 @@ function update(dt) {
   cam += (camTarget - cam) * Math.min(1, dt * 6);
   // le cours se tient à 40 % de la hauteur de l'aire de jeu : un peu sous le milieu,
   // pour que les phases baissières aient de la place pour se creuser
-  camY += ((level - (79 + 721 * 0.40)) - camY) * Math.min(1, dt * camYSpeed);
+  camY += ((level - (HUD_H + (TL_TOP - HUD_H) * 0.40)) - camY) * Math.min(1, dt * camYSpeed);
   camYSpeed += (3.2 - camYSpeed) * Math.min(1, dt * 2);
   yearFx.t = Math.min(1, yearFx.t + dt * 2);
   if (shake > 0) shake = Math.max(0, shake - dt * 30);
@@ -1413,13 +1381,13 @@ function render() {
   ctx.fillStyle = PAL.text; ctx.font = '700 330px "Space Grotesk"';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   // centré pile au milieu de l'aire de jeu (entre le bandeau du haut et la frise)
-  ctx.fillText(String(yearFx.year), W / 2, (78 + 800) / 2 + (1 - easeOutCubic(yearFx.t)) * 30);
+  ctx.fillText(String(yearFx.year), W / 2, (HUD_H + TL_TOP) / 2 + (1 - easeOutCubic(yearFx.t)) * 30);
   ctx.restore();
 
   // Encapsulation stricte : tout le monde est découpé à l'aire de jeu. Sans ça, une
   // bougie en x négatif débordait dans la bande noire, à côté du dégradé.
   ctx.save();
-  ctx.beginPath(); ctx.rect(0, 79, W, 721); ctx.clip();
+  ctx.beginPath(); ctx.rect(0, HUD_H + 1, W, TL_TOP - HUD_H - 1); ctx.clip();
 
   // secousse : seulement le monde (pas le HUD)
   ctx.save();
@@ -1427,7 +1395,7 @@ function render() {
 
   // grille de prix : lignes fixes à l'écran, ce sont les paliers qui défilent
   ctx.strokeStyle = PAL.grid; ctx.lineWidth = 1;
-  for (let ys = GRID_BASE; ys > 90; ys -= GRID_STEP) {
+  for (let ys = GRID_BASE; ys > HUD_H + 12; ys -= GRID_STEP) {
     ctx.beginPath(); ctx.moveTo(0, ys); ctx.lineTo(W, ys); ctx.stroke();
   }
 
@@ -1486,13 +1454,13 @@ function render() {
     beat.keys.forEach((k, i) => {
       // bornée à l'aire de jeu : jamais cachée par le bandeau ni par la frise
       const kx = clamp(x + 84 + i * 62, 46, W - 46);
-      const ky = clamp(ty - 8, 79 + 34, 800 - 34);
+      const ky = clamp(ty - 8, HUD_H + 34, TL_TOP - 34);
       ctx.globalAlpha = thrown ? 1 : 0.55;
       // si la touche a dû être repoussée, un trait discret la relie à la cible
       if (Math.abs(ky - (ty - 8)) > 6) {
         ctx.globalAlpha = 0.3; ctx.strokeStyle = PAL.purpleHi; ctx.lineWidth = 1.5;
         ctx.setLineDash([3, 4]);
-        ctx.beginPath(); ctx.moveTo(kx, ky); ctx.lineTo(x, clamp(ty, 79, 800)); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(kx, ky); ctx.lineTo(x, clamp(ty, HUD_H, TL_TOP)); ctx.stroke();
         ctx.setLineDash([]);
       }
       ctx.globalAlpha = thrown ? 1 : 0.55;
@@ -1528,7 +1496,7 @@ function render() {
     ctx.fillText('\u20BF', pos.x, pos.y + 1);
     ctx.textBaseline = 'alphabetic';
     // au ras du jeton, mais toujours dans l'écran
-    keycap(clamp(pos.x, 26, W - 26), clamp(pos.y - 34, 79 + 26, 800 - 26), b.key, activeB, 19, PAL.gold);
+    keycap(clamp(pos.x, 26, W - 26), clamp(pos.y - 34, HUD_H + 26, TL_TOP - 26), b.key, activeB, 19, PAL.gold);
     if (activeB) { ctx.strokeStyle = PAL.gold; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(pos.x, pos.y, 24, 0, 7); ctx.stroke(); }
     ctx.globalAlpha = 1;
   }
@@ -1540,7 +1508,7 @@ function render() {
       ctx.globalAlpha = a;
       ctx.fillStyle = burstGreen ? PAL.green : PAL.red;
       ctx.font = '700 34px "Space Grotesk"';
-      ctx.fillText('TRIPLE SHOT', 720, 300);
+      ctx.fillText('TRIPLE SHOT', CX, 300);
       ctx.globalAlpha = 1;
     }
     for (let i = 0; i < 3; i++) {
@@ -1560,7 +1528,7 @@ function render() {
       gsw.addColorStop(0, 'rgba(' + tintS + ',0)');
       gsw.addColorStop(0.5, 'rgba(' + tintS + ',' + (0.16 * (1 - u)).toFixed(3) + ')');
       gsw.addColorStop(1, 'rgba(' + tintS + ',0)');
-      ctx.fillStyle = gsw; ctx.fillRect(0, 79, W, 721);
+      ctx.fillStyle = gsw; ctx.fillRect(0, HUD_H + 1, W, TL_TOP - HUD_H - 1);
     }
   }
   // Le picto de l'événement, en grand au centre : impossible de le rater
@@ -1570,7 +1538,7 @@ function render() {
     const pop = u < 0.12 ? easeOutBack(u / 0.12) : 1;
     ctx.save();
     ctx.globalAlpha = a * 0.8;
-    ctx.translate(720, 545); // sous la zone de visée : on le voit sans être gêné
+    ctx.translate(CX, 545); // sous la zone de visée : on le voit sans être gêné
     ctx.scale(pop * 2.1, pop * 2.1);
     // halo doré derrière
     const hg = ctx.createRadialGradient(0, 0, 10, 0, 0, 130);
@@ -1586,14 +1554,14 @@ function render() {
     const left = haltUntil - worldT;
     const a = clamp(Math.min((haltUntil - worldT) / 0.6, (3.4 - left) / 0.3), 0, 1);
     ctx.fillStyle = 'rgba(6,8,15,' + (0.55 * a).toFixed(3) + ')';
-    ctx.fillRect(0, 79, W, 721);
+    ctx.fillRect(0, HUD_H + 1, W, TL_TOP - HUD_H - 1);
     ctx.textAlign = 'center';
     ctx.globalAlpha = a;
     ctx.fillStyle = PAL.red; ctx.font = '700 42px "Space Grotesk"';
-    ctx.fillText('TRADING HALTED', 720, 400);
+    ctx.fillText('TRADING HALTED', CX, 400);
     ctx.font = '500 13px "IBM Plex Mono"';
     ctx.fillStyle = '#C9CDDC';
-    ctx.fillText('MARCH 12, 2020 — CIRCUIT BREAKERS TRIGGERED', 720, 432);
+    ctx.fillText('MARCH 12, 2020 — CIRCUIT BREAKERS TRIGGERED', CX, 432);
     ctx.globalAlpha = 1;
   }
   // Krach éclair : l'écran vire au rouge une demi-seconde
@@ -1601,7 +1569,7 @@ function render() {
   if (cf >= 0 && cf < 0.65) {
     const a = (1 - cf / 0.65) * 0.5;
     ctx.fillStyle = 'rgba(255,77,94,' + a.toFixed(3) + ')';
-    ctx.fillRect(0, 79, W, 721);
+    ctx.fillRect(0, HUD_H + 1, W, TL_TOP - HUD_H - 1);
   }
   // FOMO RUSH : vignette dorée + bannière + temps restant
   if (state === 'play' && worldT < frenzyUntil && (!beat || (beat.type !== 'panic' && beat.type !== 'pump'))) {
@@ -1610,15 +1578,15 @@ function render() {
     ctx.textAlign = 'center';
     ctx.globalAlpha = 0.85 + 0.15 * Math.sin(worldT * 13);
     ctx.fillStyle = PAL.gold; ctx.font = '700 40px "Space Grotesk"';
-    ctx.fillText(frenzyMult > 3 ? 'LIQUIDITY RUSH  ×' + frenzyMult : 'FOMO RUSH  ×3', 720, 268);
+    ctx.fillText(frenzyMult > 3 ? 'LIQUIDITY RUSH  ×' + frenzyMult : 'FOMO RUSH  ×3', CX, 268);
     ctx.font = '500 12px "IBM Plex Mono"';
     ctx.font = '700 20px "Space Grotesk"';
     ctx.fillText(frenzyMult > 3 ? 'THE PRINTER IS ON — EVERYTHING COUNTS ×' + frenzyMult
-                                : 'TIGHTER · FASTER · EVERYTHING COUNTS TRIPLE', 720, 300);
+                                : 'TIGHTER · FASTER · EVERYTHING COUNTS TRIPLE', CX, 300);
     ctx.globalAlpha = 1;
     const rem = clamp((frenzyUntil - worldT) / (CFG.frenzyDur * (frenzyMult > 3 ? 1.9 : 1)), 0, 1);
-    ctx.fillStyle = '#161C2C'; rr(570, 318, 300, 6, 3); ctx.fill();
-    ctx.fillStyle = PAL.gold; rr(570, 318, 300 * rem, 6, 3); ctx.fill();
+    ctx.fillStyle = '#161C2C'; rr(CX - 150, 318, 300, 6, 3); ctx.fill();
+    ctx.fillStyle = PAL.gold; rr(CX - 150, 318, 300 * rem, 6, 3); ctx.fill();
   }
   // PUMP : vignette verte, spam ↑
   if (beat && beat.type === 'pump' && !beat.resolved) {
@@ -1628,26 +1596,26 @@ function render() {
     ctx.textAlign = 'center';
     ctx.globalAlpha = 0.85 + 0.15 * Math.sin(worldT * 14);
     ctx.fillStyle = PAL.green; ctx.font = '700 46px "Space Grotesk"';
-    ctx.fillText('RALLY!', 720, 262);
+    ctx.fillText('RALLY!', CX, 262);
     ctx.font = '700 23px "Space Grotesk"';
-    ctx.fillText(armed ? 'TAP ↑ AS FAST AS YOU CAN' : 'GET READY…', 720, 298);
+    ctx.fillText(armed ? 'TAP ↑ AS FAST AS YOU CAN' : 'GET READY…', CX, 298);
     ctx.globalAlpha = 1;
-    mashKeycap(720, 386, 'up', armed, PAL.green, beat.lastPressAt);
+    mashKeycap(CX, 386, 'up', armed, PAL.green, beat.lastPressAt);
     if (armed) {
       // le cumul en gros : le joueur voit son argent grimper à chaque frappe
       const pop = clamp(1 - (worldT - (beat.lastPressAt || -9)) / 0.12, 0, 1);
       ctx.save();
-      ctx.translate(720, 470); ctx.scale(1 + pop * 0.16, 1 + pop * 0.16); ctx.translate(-720, -470);
+      ctx.translate(CX, 470); ctx.scale(1 + pop * 0.16, 1 + pop * 0.16); ctx.translate(-CX, -470);
       ctx.fillStyle = beat.count > 10 ? PAL.gold : PAL.green;
       ctx.font = '700 40px "Space Grotesk"';
-      ctx.fillText(fmt$(beat.earned || 0), 720, 470);
+      ctx.fillText(fmt$(beat.earned || 0), CX, 470);
       ctx.restore();
       // et la valeur de la PROCHAINE frappe, qui monte visiblement
       ctx.fillStyle = PAL.muted; ctx.font = '500 12px "IBM Plex Mono"';
-      ctx.fillText('NEXT HIT ' + fmt$(pumpValue(beat.count + 1)) + '  ·  ×' + beat.count, 720, 496);
+      ctx.fillText('NEXT HIT ' + fmt$(pumpValue(beat.count + 1)) + '  ·  ×' + beat.count, CX, 496);
       const rem = clamp((beat.tEnd - worldT) / CFG.pumpDur, 0, 1);
-      ctx.fillStyle = '#161C2C'; rr(570, 514, 300, 6, 3); ctx.fill();
-      ctx.fillStyle = PAL.green; rr(570, 514, 300 * rem, 6, 3); ctx.fill();
+      ctx.fillStyle = '#161C2C'; rr(CX - 150, 514, 300, 6, 3); ctx.fill();
+      ctx.fillStyle = PAL.green; rr(CX - 150, 514, 300 * rem, 6, 3); ctx.fill();
     }
   }
   // PANIC SELL : vignette rouge + séquence de flèches à enchaîner
@@ -1659,29 +1627,29 @@ function render() {
     ctx.textAlign = 'center';
     ctx.globalAlpha = 0.85 + 0.15 * Math.sin(worldT * 14);
     ctx.fillStyle = PAL.red; ctx.font = '700 46px "Space Grotesk"';
-    ctx.fillText(beat.label, 720, 262);
+    ctx.fillText(beat.label, CX, 262);
     ctx.font = '700 23px "Space Grotesk"';
-    ctx.fillText(armed ? beat.sub : 'GET READY…', 720, 298);
+    ctx.fillText(armed ? beat.sub : 'GET READY…', CX, 298);
     ctx.globalAlpha = 1;
     if (beat.mode === 'mash') {
-      mashKeycap(720, 386, 'down', armed, PAL.red, beat.lastPressAt);
+      mashKeycap(CX, 386, 'down', armed, PAL.red, beat.lastPressAt);
       if (armed) {
         const pop = clamp(1 - (worldT - (beat.lastPressAt || -9)) / 0.12, 0, 1);
         ctx.save();
-        ctx.translate(720, 470); ctx.scale(1 + pop * 0.16, 1 + pop * 0.16); ctx.translate(-720, -470);
+        ctx.translate(CX, 470); ctx.scale(1 + pop * 0.16, 1 + pop * 0.16); ctx.translate(-CX, -470);
         ctx.fillStyle = PAL.red; ctx.font = '700 40px "Space Grotesk"';
-        ctx.fillText(fmt$(beat.earned || 0), 720, 470);
+        ctx.fillText(fmt$(beat.earned || 0), CX, 470);
         ctx.restore();
         ctx.fillStyle = PAL.muted; ctx.font = '500 12px "IBM Plex Mono"';
-        ctx.fillText('×' + beat.count, 720, 496);
+        ctx.fillText('×' + beat.count, CX, 496);
       }
       if (armed) {
         const rem = clamp((beat.tEnd - worldT) / CFG.panicDur, 0, 1);
-        ctx.fillStyle = '#161C2C'; rr(570, 528, 300, 6, 3); ctx.fill();
-        ctx.fillStyle = PAL.red; rr(570, 528, 300 * rem, 6, 3); ctx.fill();
+        ctx.fillStyle = '#161C2C'; rr(CX - 150, 528, 300, 6, 3); ctx.fill();
+        ctx.fillStyle = PAL.red; rr(CX - 150, 528, 300 * rem, 6, 3); ctx.fill();
       }
     } else {
-      const n = beat.seq.length, sp = 64, x0 = 720 - (n - 1) * sp / 2;
+      const n = beat.seq.length, sp = 64, x0 = CX - (n - 1) * sp / 2;
       for (let i = 0; i < n; i++) {
         const done = i < beat.pos, cur = i === beat.pos && armed;
         ctx.globalAlpha = done ? 0.4 : cur ? 1 : 0.7;
@@ -1690,8 +1658,8 @@ function render() {
       ctx.globalAlpha = 1;
       if (armed) {
         const rem = clamp((beat.tEnd - worldT) / (beat.seq.length * CFG.panicPerKey + 0.4), 0, 1);
-        ctx.fillStyle = '#161C2C'; rr(570, 396, 300, 6, 3); ctx.fill();
-        ctx.fillStyle = PAL.red; rr(570, 396, 300 * rem, 6, 3); ctx.fill();
+        ctx.fillStyle = '#161C2C'; rr(CX - 150, 396, 300, 6, 3); ctx.fill();
+        ctx.fillStyle = PAL.red; rr(CX - 150, 396, 300 * rem, 6, 3); ctx.fill();
       }
     }
   }
@@ -1713,32 +1681,32 @@ function render() {
   // Encapsulation : deux dégradés horizontaux ferment l'aire de jeu. Les bougies s'y
   // fondent au lieu d'être coupées net au bord, et elles ne touchent jamais le logo.
   // le voile s'arrête juste après le logo : on voit le jeton partir du calamar
-  const scrimL = ctx.createLinearGradient(0, 0, 250, 0);
+  const scrimL = ctx.createLinearGradient(0, 0, SCRIM_L, 0);
   scrimL.addColorStop(0, PAL.bg); scrimL.addColorStop(0.5, PAL.bg);
   scrimL.addColorStop(0.75, PAL.bg + 'A0'); scrimL.addColorStop(1, PAL.bg + '00');
-  ctx.fillStyle = scrimL; ctx.fillRect(0, 79, 250, 720);
-  const scrimR = ctx.createLinearGradient(W, 0, W - 300, 0);
+  ctx.fillStyle = scrimL; ctx.fillRect(0, HUD_H + 1, SCRIM_L, TL_TOP - HUD_H - 1);
+  const scrimR = ctx.createLinearGradient(W, 0, W - SCRIM_R, 0);
   scrimR.addColorStop(0, PAL.bg); scrimR.addColorStop(0.3, PAL.bg);
   scrimR.addColorStop(0.65, PAL.bg + 'B0'); scrimR.addColorStop(1, PAL.bg + '00');
-  ctx.fillStyle = scrimR; ctx.fillRect(W - 300, 79, 300, 720);
+  ctx.fillStyle = scrimR; ctx.fillRect(W - SCRIM_R, HUD_H + 1, SCRIM_R, TL_TOP - HUD_H - 1);
 
   // la grille est redessinée par-dessus : le fond reste continu d'un bord à l'autre,
   // seules les bougies se fondent. Sans ça, le dégradé se lit comme un panneau posé.
   ctx.strokeStyle = PAL.grid; ctx.lineWidth = 1;
-  for (let ys = GRID_BASE; ys > 90; ys -= GRID_STEP) {
-    ctx.beginPath(); ctx.moveTo(0, ys); ctx.lineTo(250, ys); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(W - 300, ys); ctx.lineTo(W, ys); ctx.stroke();
+  for (let ys = GRID_BASE; ys > HUD_H + 12; ys -= GRID_STEP) {
+    ctx.beginPath(); ctx.moveTo(0, ys); ctx.lineTo(SCRIM_L, ys); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W - SCRIM_R, ys); ctx.lineTo(W, ys); ctx.stroke();
   }
 
   // les paliers de prix se lisent par-dessus le dégradé de droite
   ctx.font = '500 9px "IBM Plex Mono"'; ctx.textAlign = 'right'; ctx.fillStyle = PAL.faint;
   let lastLabel = MOB ? 'off' : null;
   if (MOB) lastLabel = null;
-  if (!MOB) for (let ys = GRID_BASE; ys > 90; ys -= GRID_STEP) {
+  if (!MOB) for (let ys = GRID_BASE; ys > HUD_H + 12; ys -= GRID_STEP) {
     const lab = fmtPrice(priceAt(ys + camY));
     if (lab === lastLabel) continue; // pas deux fois le même palier
     lastLabel = lab;
-    ctx.fillText(lab, 1424, ys - 6);
+    ctx.fillText(lab, W - 16, ys - 6);
   }
   ctx.textAlign = 'left';
 
@@ -1850,8 +1818,8 @@ function render() {
   }
 
   // ---- HUD (fixe) ----
-  ctx.fillStyle = PAL.panel; ctx.fillRect(0, 0, W, 78);
-  ctx.strokeStyle = PAL.grid; ctx.beginPath(); ctx.moveTo(0, 78); ctx.lineTo(W, 78); ctx.stroke();
+  ctx.fillStyle = PAL.panel; ctx.fillRect(0, 0, W, HUD_H);
+  ctx.strokeStyle = PAL.grid; ctx.beginPath(); ctx.moveTo(0, HUD_H); ctx.lineTo(W, HUD_H); ctx.stroke();
   ctx.textBaseline = 'alphabetic';
   ctx.textAlign = 'left';
   ctx.fillStyle = PAL.text; ctx.font = '700 ' + (MOB ? 30 : 20) + 'px "Space Grotesk"';
@@ -1863,25 +1831,27 @@ function render() {
   const chip = era.label + ' · ' + mon + ' ' + year;
   ctx.font = '500 ' + (MOB ? 17 : 12) + 'px "IBM Plex Mono"';
   const cw = ctx.measureText(chip).width + 46;
+  const chipY = MOB ? 60 : 22;                    // en portrait : deuxième ligne du bandeau
   ctx.fillStyle = '#131028'; ctx.strokeStyle = '#2A2350'; ctx.lineWidth = 1;
-  rr(W / 2 - cw / 2, 22, cw, 34, 17); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = era.bias >= 0.5 ? PAL.green : PAL.red; ctx.beginPath(); ctx.arc(W / 2 - cw / 2 + 20, 39, 4, 0, 7); ctx.fill();
-  ctx.fillStyle = '#C9CDDC'; ctx.fillText(chip, W / 2 + 8, 43);
+  rr(W / 2 - cw / 2, chipY, cw, 34, 17); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = era.bias >= 0.5 ? PAL.green : PAL.red;
+  ctx.beginPath(); ctx.arc(W / 2 - cw / 2 + 20, chipY + 17, 4, 0, 7); ctx.fill();
+  ctx.fillStyle = '#C9CDDC'; ctx.fillText(chip, W / 2 + 8, chipY + 21);
   // stats droite
   ctx.textAlign = 'right'; ctx.font = '500 ' + (MOB ? 13 : 9) + 'px "IBM Plex Mono"'; ctx.fillStyle = PAL.faint;
-  ctx.fillText('P&L', 1150, 28); ctx.fillText('COMBO', 1270, 28); ctx.fillText('LIVES', 1396, 28);
+  ctx.fillText('P&L', W - 290, 28); ctx.fillText('COMBO', W - 170, 28); ctx.fillText('LIVES', W - 44, 28);
   ctx.font = '600 ' + (MOB ? 26 : 19) + 'px "IBM Plex Mono"';
-  ctx.fillStyle = pnl >= 0 ? PAL.green : PAL.red; ctx.fillText(fmt$(pnl), 1150, 56);
-  ctx.fillStyle = PAL.purpleHi; ctx.fillText('×' + combo, 1270, 56);
-  for (let i = 0; i < CFG.lives; i++) { ctx.fillStyle = i < lives ? PAL.purple : '#262C3F'; ctx.beginPath(); ctx.arc(1396 - (CFG.lives - 1 - i) * 20, 50, 6, 0, 7); ctx.fill(); }
+  ctx.fillStyle = pnl >= 0 ? PAL.green : PAL.red; ctx.fillText(fmt$(pnl), W - 290, 56);
+  ctx.fillStyle = PAL.purpleHi; ctx.fillText('×' + combo, W - 170, 56);
+  for (let i = 0; i < CFG.lives; i++) { ctx.fillStyle = i < lives ? PAL.purple : '#262C3F'; ctx.beginPath(); ctx.arc(W - 44 - (CFG.lives - 1 - i) * 20, 50, 6, 0, 7); ctx.fill(); }
 
   // ---- Timeline ----
   // le fond d'abord, PUIS le calamar, PUIS la barre et les dates : les tentacules
   // descendent jusqu'en bas mais passent DERRIÈRE la progression.
-  ctx.fillStyle = PAL.panel; ctx.fillRect(0, 800, W, 100);
-  ctx.strokeStyle = PAL.grid; ctx.beginPath(); ctx.moveTo(0, 800); ctx.lineTo(W, 800); ctx.stroke();
+  ctx.fillStyle = PAL.panel; ctx.fillRect(0, TL_TOP, W, H - TL_TOP);
+  ctx.strokeStyle = PAL.grid; ctx.beginPath(); ctx.moveTo(0, TL_TOP); ctx.lineTo(W, TL_TOP); ctx.stroke();
   drawKrakenBands();
-  const tl = { x: 48, w: W - 96, y: 838 };
+  const tl = { x: 48, w: W - 96, y: TL_TOP + (MOB ? 48 : 38) };
   const prog = clamp(tick / CFG.totalTicks, 0, 1);
   ctx.fillStyle = '#161C2C'; rr(tl.x, tl.y, tl.w, 8, 4); ctx.fill();
   ctx.fillStyle = PAL.purple; rr(tl.x, tl.y, Math.max(8, tl.w * prog), 8, 4); ctx.fill();
@@ -2011,6 +1981,7 @@ window.focus();
 addEventListener('pointerdown', () => {
   window.focus();
   if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (err) {} }
+  if (MOB) return; // sur tactile, c'est le double tap qui lance (voir plus bas)
   if (state === 'over' || state === 'win') startGame(levelKey);
   else if (state === 'start' && document.activeElement !== document.getElementById('pseudo')) startGame(levelKey);
   else if (state === 'pause') { state = 'play'; document.getElementById('pauseOverlay').hidden = true; last = performance.now(); }
@@ -2031,10 +2002,7 @@ addEventListener('blur', () => {
 
 function goHome() {
   state = 'start';
-  if (typeof isTouch !== 'undefined' && isTouch && innerWidth > innerHeight) {
-    document.body.classList.add('swipeintro');
-    setTimeout(() => { if (state === 'start') { document.body.classList.remove('swipeintro'); startGame(levelKey); } }, 3200);
-  }
+
   document.getElementById('pauseOverlay').hidden = true;
   document.getElementById('endOverlay').hidden = true;
   document.getElementById('startOverlay').hidden = false;
@@ -2044,8 +2012,7 @@ function goHome() {
 function startGame(key) {
   bootAudio();
   const field = document.getElementById('pseudo');
-  const fm = document.getElementById('pseudoM');
-  playerName = ((fm && fm.value) || field.value || '').trim().slice(0, 14);
+  playerName = (field.value || '').trim().slice(0, 14);
   try { localStorage.setItem('inkrush-name', playerName); } catch (e) {}
   applyLevel(key);
   loadBest();
@@ -2066,7 +2033,11 @@ document.getElementById('pseudo').value = playerName;
 document.getElementById('pseudo').addEventListener('pointerdown', e => e.stopPropagation());
 for (const [id, key] of [['lvNormal', 'normal'], ['lvHard', 'hard'],
                          ['lvNormalEnd', 'normal'], ['lvHardEnd', 'hard']]) {
-  document.getElementById(id).addEventListener('click', e => { e.stopPropagation(); startGame(key); });
+  document.getElementById(id).addEventListener('click', e => {
+    e.stopPropagation();
+    // sur tactile un tap ne fait que choisir : c'est le double tap qui lance
+    if (MOB) { applyLevel(key); loadBest(); } else startGame(key);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -2078,52 +2049,15 @@ if (isTouch) {
   document.getElementById('hintKeys').hidden = true;
   document.getElementById('hintTouch').hidden = false;
 
-  // Le paramétrage se fait en portrait, où il y a de la hauteur ; le paysage joue.
-  const pm = document.getElementById('pseudoM');
-  pm.value = playerName;
-  pm.addEventListener('input', () => {
-    playerName = pm.value.trim().slice(0, 14);
-    try { localStorage.setItem('inkrush-name', playerName); } catch (e) {}
-    const d = document.getElementById('pseudo'); if (d) d.value = playerName;
-  });
-  for (const [id, key] of [['lvNormalM', 'normal'], ['lvHardM', 'hard']]) {
-    document.getElementById(id).addEventListener('click', e => {
-      e.stopPropagation(); applyLevel(key); loadBest();
-    });
+  // Le jeu est en portrait plein cadre : plus d'écran de rotation, plus de départ
+  // automatique. Le joueur choisit son niveau, entre son pseudo, puis DOUBLE TAPE.
+  let lastTapAt = 0;
+  function homeDoubleTap() {
+    const now = performance.now();
+    if (now - lastTapAt < 420) { lastTapAt = 0; bootAudio(); startGame(levelKey); return true; }
+    lastTapAt = now;
+    return false;
   }
-
-  const intro = document.getElementById('swipeIntro');
-  const showIntro = on => document.body.classList.toggle('swipeintro', on);
-  let introTimer = null;
-  function launchFromIntro() {
-    if (!document.body.classList.contains('swipeintro')) return;
-    clearTimeout(introTimer); showIntro(false); startGame(levelKey);
-  }
-  intro.addEventListener('click', e => { e.stopPropagation(); launchFromIntro(); });
-  intro.addEventListener('touchend', e => { e.preventDefault(); e.stopPropagation(); launchFromIntro(); }, { passive: false });
-
-  const checkOrient = () => {
-    const portrait = innerHeight > innerWidth;
-    document.body.classList.toggle('portrait', portrait);
-    if (portrait) {
-      clearTimeout(introTimer); showIntro(false);
-      if (state === 'play' || state === 'pause') {   // on met en pause si on tourne en pleine partie
-        state = 'pause'; document.getElementById('pauseOverlay').hidden = false;
-      }
-      return;
-    }
-    // passage en paysage depuis l'accueil : le tutoriel, puis la partie démarre seule
-    if (state === 'start') {
-      bootAudio();
-      showIntro(true);
-      document.getElementById('swipeGo').textContent = 'TAP TO START';
-      clearTimeout(introTimer);
-      introTimer = setTimeout(launchFromIntro, 3200);
-    }
-  };
-  addEventListener('resize', checkOrient);
-  addEventListener('orientationchange', () => setTimeout(checkOrient, 250));
-  checkOrient();
 
   const SWIPE = 26;            // distance à parcourir avant de déclencher
   let sx = 0, sy = 0, fired = false, moved = false;
@@ -2157,6 +2091,18 @@ if (isTouch) {
     if (ratio > 0.45 && ratio < 2.2 && ax > SWIPE && ay > SWIPE) { press(v); press(h); }
     else if (ax > ay) press(h);
     else press(v);
+  }, { passive: false });
+
+  // hors jeu : double tap pour lancer, sauf sur les boutons et le champ pseudo
+  addEventListener('touchend', e => {
+    if (playing()) return;
+    if (state !== 'start' && state !== 'over' && state !== 'win') return;
+    const t = e.changedTouches && e.changedTouches[0];
+    if (t) {
+      const el = document.elementFromPoint(t.clientX, t.clientY);
+      if (el && el.closest && el.closest('button, input')) return;
+    }
+    if (homeDoubleTap()) e.preventDefault();
   }, { passive: false });
 
   addEventListener('touchend', e => {
