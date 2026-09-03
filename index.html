@@ -590,17 +590,44 @@ async function fetchRemoteBoard() {
   } catch (e) { return null; }
 }
 
-// Une ligne par partie jouee : c'est la que se lit « qui a joue, quand, jusqu'ou »
+// Une ligne par partie jouee : c'est la que se lit « qui a joue, quand, jusqu'ou ».
+// keepalive : l'envoi survit même si l'onglet se ferme juste après la partie.
+// En cas d'échec réseau, la partie est mise de côté dans le navigateur et
+// repart au prochain chargement ou à la prochaine fin de partie.
+function queueRun(run) {
+  try {
+    const q = JSON.parse(localStorage.getItem('inkrush-pending') || '[]');
+    q.push(run);
+    localStorage.setItem('inkrush-pending', JSON.stringify(q.slice(-30)));
+  } catch (e) {}
+}
+async function flushRuns() {
+  if (!SUPA_ON) return;
+  let q = [];
+  try { q = JSON.parse(localStorage.getItem('inkrush-pending') || '[]'); } catch (e) {}
+  if (!Array.isArray(q) || !q.length) return;
+  try {
+    const r = await fetch(SUPA_URL + '/rest/v1/runs', {
+      method: 'POST', keepalive: true,
+      headers: Object.assign(supaHead(), { Prefer: 'return=minimal' }),
+      body: JSON.stringify(q),
+    });
+    if (r.ok) try { localStorage.removeItem('inkrush-pending'); } catch (e) {}
+  } catch (e) {}
+}
 async function pushRemoteScore(run) {
   if (!SUPA_ON) return;
   try {
-    await fetch(SUPA_URL + '/rest/v1/runs', {
-      method: 'POST',
+    const r = await fetch(SUPA_URL + '/rest/v1/runs', {
+      method: 'POST', keepalive: true,
       headers: Object.assign(supaHead(), { Prefer: 'return=minimal' }),
       body: JSON.stringify(run),
     });
-  } catch (e) {}
+    if (!r.ok && r.status >= 500) queueRun(run);
+    else flushRuns(); // l'envoi passe : on en profite pour rattraper les retardataires
+  } catch (e) { queueRun(run); }
 }
+flushRuns(); // au chargement, on renvoie ce qui n'était pas parti
 function loadBoard() {
   try { const raw = JSON.parse(localStorage.getItem(boardKey()) || '[]'); return Array.isArray(raw) ? raw : []; }
   catch (e) { return []; }
@@ -1145,8 +1172,9 @@ function gameEnd(won) {
     });
     const rows = await fetchRemoteBoard();
     if (!rows || !rows.length) return renderBoard(local, 'local'); // repli si le réseau lâche
-    let mine = rows.findIndex(r => r.d === deviceId);
-    const entry = mine >= 0 ? rows[mine] : { n: playerName || 'ANON', s: Math.round(pnl), t: Date.now() };
+    const myName = playerName || 'ANON';
+    let mine = rows.findIndex(r => r.d === deviceId && r.n === myName);
+    const entry = mine >= 0 ? rows[mine] : { n: myName, s: Math.round(pnl), t: Date.now() };
     if (mine < 0) mine = rows.length;
     renderBoard({ rank: mine + 1, total: rows.length, board: rows.slice(0, 20), entry }, 'global');
   })();
@@ -1933,33 +1961,34 @@ function render() {
   ctx.fillStyle = PAL.text; ctx.font = '700 ' + (MOB ? 30 : 20) + 'px "Space Grotesk"';
   const titleY = MOB ? 50 : 40;
   ctx.fillText('INK RUSH', 36, titleY);
-  // le mode de jeu prend la place des vies et du combo : on sait toujours où l'on joue
-  const modeCol = levelKey === 'hard' ? PAL.red : PAL.purpleHi;
-  const titleW = ctx.measureText('INK RUSH').width;
-  ctx.font = '600 ' + (MOB ? 15 : 11) + 'px "IBM Plex Mono"';
-  const mh = MOB ? 28 : 22, mw = ctx.measureText(L.label).width + (MOB ? 30 : 24);
-  const mx = 36 + titleW + 14, my = titleY - mh + (MOB ? 8 : 6);
-  ctx.fillStyle = '#131028'; ctx.strokeStyle = modeCol; ctx.lineWidth = 1;
-  rr(mx, my, mw, mh, mh / 2); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = modeCol; ctx.fillText(L.label, mx + (MOB ? 15 : 12), my + mh / 2 + (MOB ? 5 : 4));
   if (!MOB) { ctx.fillStyle = PAL.faint; ctx.font = '500 10px "IBM Plex Mono"';
     ctx.fillText('BTC/USD · 2008→2027', 36, 58); }
-  // chip d'époque
+  // chip d'époque, en grand : c'est la ligne qui raconte où l'on est
   ctx.textAlign = 'center';
   const chip = era.label + ' · ' + mon + ' ' + year;
-  ctx.font = '500 ' + (MOB ? 17 : 12) + 'px "IBM Plex Mono"';
-  const cw = ctx.measureText(chip).width + 46;
-  const chipY = MOB ? 60 : 22;                    // en portrait : deuxième ligne du bandeau
+  ctx.font = '500 ' + (MOB ? 20 : 16) + 'px "IBM Plex Mono"';
+  const cw = ctx.measureText(chip).width + 54, ch = MOB ? 46 : 42;
+  const chipY = MOB ? 54 : 18;                    // en portrait : deuxième ligne du bandeau
   ctx.fillStyle = '#131028'; ctx.strokeStyle = '#2A2350'; ctx.lineWidth = 1;
-  rr(W / 2 - cw / 2, chipY, cw, 34, 17); ctx.fill(); ctx.stroke();
+  rr(W / 2 - cw / 2, chipY, cw, ch, ch / 2); ctx.fill(); ctx.stroke();
   ctx.fillStyle = era.bias >= 0.5 ? PAL.green : PAL.red;
-  ctx.beginPath(); ctx.arc(W / 2 - cw / 2 + 20, chipY + 17, 4, 0, 7); ctx.fill();
-  ctx.fillStyle = '#C9CDDC'; ctx.fillText(chip, W / 2 + 8, chipY + 21);
-  // à droite, le P&L seul : le combo et les vies sont sur l'écran de fin
+  ctx.beginPath(); ctx.arc(W / 2 - cw / 2 + 24, chipY + ch / 2, 5, 0, 7); ctx.fill();
+  ctx.fillStyle = '#C9CDDC'; ctx.fillText(chip, W / 2 + 10, chipY + ch / 2 + (MOB ? 7 : 6));
+  // à droite : le mode, puis le P&L à l'extrême droite. Vies et combo sont sur l'écran de fin.
   ctx.textAlign = 'right'; ctx.font = '500 ' + (MOB ? 13 : 9) + 'px "IBM Plex Mono"'; ctx.fillStyle = PAL.faint;
   ctx.fillText('P&L', W - 44, 28);
   ctx.font = '600 ' + (MOB ? 26 : 19) + 'px "IBM Plex Mono"';
+  const pnlW = Math.max(ctx.measureText(fmt$(pnl)).width, 70);
   ctx.fillStyle = pnl >= 0 ? PAL.green : PAL.red; ctx.fillText(fmt$(pnl), W - 44, 56);
+  const modeCol = levelKey === 'hard' ? PAL.red : PAL.purpleHi;
+  ctx.font = '600 ' + (MOB ? 17 : 13) + 'px "IBM Plex Mono"';
+  const mh = MOB ? 34 : 28, mw = ctx.measureText(L.label).width + (MOB ? 34 : 28);
+  const mx = W - 44 - pnlW - (MOB ? 40 : 32) - mw, my = 42 - mh / 2;
+  ctx.fillStyle = '#131028'; ctx.strokeStyle = modeCol; ctx.lineWidth = 1.2;
+  rr(mx, my, mw, mh, mh / 2); ctx.fill(); ctx.stroke();
+  ctx.textAlign = 'center';
+  ctx.fillStyle = modeCol; ctx.fillText(L.label, mx + mw / 2, my + mh / 2 + (MOB ? 6 : 5));
+  ctx.textAlign = 'right';
 
   // ---- Timeline ----
   // le fond d'abord, PUIS le calamar, PUIS la barre et les dates : les tentacules
@@ -2088,8 +2117,11 @@ addEventListener('keydown', e => {
 // Dans la page publiée, le clavier n'atteint le jeu qu'une fois la page cliquée :
 // on prend le focus au chargement, et un clic/tap démarre aussi la partie.
 window.focus();
-addEventListener('pointerdown', () => {
+addEventListener('pointerdown', (e) => {
   window.focus();
+  // Les boutons de niveau, le pseudo et les réglages gèrent leurs propres clics :
+  // le lanceur global ne doit JAMAIS démarrer une partie à leur place.
+  if (e.target && e.target.closest && e.target.closest('.levels, .nameRow, #tune')) return;
   if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (err) {} }
   if (MOB) return; // sur tactile, c'est le double tap qui lance (voir plus bas)
   if (state === 'over' || state === 'win') startGame(levelKey);
