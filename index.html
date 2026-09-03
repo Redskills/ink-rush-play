@@ -8,15 +8,51 @@
   html, body, canvas { touch-action: none; -webkit-user-select: none; user-select: none;
                        -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
   /* écran de rotation : le jeu se joue à l'horizontale */
+  /* --- Portrait sur mobile : tout le paramétrage tient ici, il y a la place --- */
   #rotate {
     position: fixed; inset: 0; z-index: 40; display: none;
     background: #06080F; color: #E8EAF2; text-align: center;
-    align-items: center; justify-content: center; padding: 32px;
+    flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px; padding: 24px; overflow-y: auto;
   }
-  #rotate b { display: block; font-size: 22px; letter-spacing: 1px; margin-bottom: 10px; }
-  #rotate span { font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 2px; color: #6B7390; }
-  #rotate svg { display: block; margin: 0 auto 26px auto; }
-  body.portrait #rotate { display: flex; }
+  body.portrait.touch #rotate { display: flex; }
+  #rotate h1 { font-size: 34px; letter-spacing: 2px; margin: 0; }
+  #rotate h1 .ink { color: #A895FF; }
+  #rotate .rule { font-size: 16px; line-height: 1.5; color: #C9CDDC; margin: 0; max-width: 340px; }
+  #rotate .levels { flex-direction: column; width: 100%; max-width: 320px; margin: 0; }
+  #rotate .levels button { max-width: none; }
+  #rotate .turn { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 6px; }
+  #rotate .turn span { font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 2px; color: #00D68F; }
+  @keyframes tilt { 0%, 55% { transform: rotate(0deg); } 80%, 100% { transform: rotate(-90deg); } }
+  #rotate .turn svg { animation: tilt 2.4s ease-in-out infinite; }
+
+  /* --- Le tutoriel de glissement, en paysage avant de jouer --- */
+  #swipeIntro {
+    position: fixed; inset: 0; z-index: 35; display: none;
+    background: #06080FF2; color: #E8EAF2; text-align: center;
+    flex-direction: column; align-items: center; justify-content: center; gap: 3vh;
+  }
+  body.swipeintro #swipeIntro { display: flex; }
+  #swipeIntro .t { font-size: clamp(18px, 5.2vh, 30px); font-weight: 700; letter-spacing: 1px; }
+  #swipeIntro .s { font-family: 'IBM Plex Mono', monospace; font-size: clamp(10px, 2.6vh, 14px);
+                   letter-spacing: 2px; color: #6B7390; }
+  #swipeIntro .go { font-family: 'IBM Plex Mono', monospace; font-size: clamp(11px, 2.8vh, 15px);
+                    letter-spacing: 2px; color: #00D68F; }
+  .demo { position: relative; width: clamp(180px, 46vh, 300px); height: clamp(70px, 18vh, 116px); }
+  .demo .track { position: absolute; inset: 0; border: 2px dashed #2A2350; border-radius: 16px; }
+  .demo .dot {
+    position: absolute; top: 50%; left: 0; width: clamp(24px, 6vh, 38px); height: clamp(24px, 6vh, 38px);
+    margin-top: calc(clamp(24px, 6vh, 38px) / -2); border-radius: 50%; background: #7C5CFF;
+    box-shadow: 0 0 0 4px #7C5CFF33; animation: swipeDemo 2.2s ease-in-out infinite;
+  }
+  @keyframes swipeDemo {
+    0%   { left: 6%;  opacity: 0; }
+    12%  { left: 6%;  opacity: 1; }
+    55%  { left: calc(94% - clamp(24px, 6vh, 38px)); opacity: 1; }
+    72%  { left: calc(94% - clamp(24px, 6vh, 38px)); opacity: 0; }
+    100% { left: 6%;  opacity: 0; }
+  }
+  .demo .arrow { position: absolute; top: 50%; right: 8%; transform: translateY(-50%); }
   body { margin: 0; background: #06080F; overflow: hidden; font-family: 'Space Grotesk', 'Helvetica Neue', Arial, sans-serif; }
   canvas { display: block; }
   [hidden] { display: none !important; }
@@ -109,17 +145,64 @@
     .hideOnTouch { display: none !important; }
     .showOnTouch[hidden] { display: block !important; }
   }
+
+  /* Paysage téléphone : très peu de hauteur, on compacte tout */
+  @media (max-height: 520px) {
+    .overlay { padding: 6px; align-items: center; overflow-y: auto; }
+    .overlay .card { max-height: 100%; overflow-y: auto; }
+    .overlay .card { padding: 6px 14px; max-width: 96vw; }
+    .overlay h1 { font-size: clamp(20px, 6.4vh, 34px); margin: 0 0 2px 0; }
+    .overlay .sub { font-size: clamp(8px, 2vh, 11px); margin-bottom: 6px; letter-spacing: 2px; }
+    .overlay p, .overlay .small { display: none; }
+    .overlay .keys { display: none; }
+    .overlay .stat { font-size: clamp(11px, 3vh, 16px); margin: 1px 0; }
+    .rank { font-size: clamp(10px, 2.6vh, 14px); margin: 6px 0 2px 0; }
+    .rank b { font-size: clamp(14px, 3.6vh, 20px); }
+    .board { width: min(94vw, 420px); font-size: clamp(9px, 2.3vh, 13px); margin-top: 2px; }
+    .board div { padding: clamp(1px, 0.6vh, 5px) 12px; }
+    .board div:nth-child(n+4) { display: none; }
+    .scope { font-size: clamp(7px, 1.8vh, 10px); margin-top: 4px; }
+    .nameRow { margin-top: 8px; }
+    .levels { margin: 8px 0 2px 0; gap: 8px; }
+    .levels button { padding: clamp(4px, 1.6vh, 12px) 12px; }
+    .levels button b { font-size: clamp(11px, 3vh, 17px); margin-bottom: 0; }
+    .levels button span { font-size: clamp(8px, 2vh, 12px); }
+    .overlay .go { font-size: clamp(9px, 2.4vh, 14px); margin-top: 6px; }
+  }
+
 </style>
 
-<div id="rotate"><div>
-  <svg width="86" height="86" viewBox="0 0 86 86" fill="none">
-    <rect x="24" y="8" width="38" height="66" rx="7" stroke="#7C5CFF" stroke-width="3"/>
-    <path d="M14 62a34 34 0 0 0 12 12" stroke="#A895FF" stroke-width="3" stroke-linecap="round"/>
-    <path d="M22 66l-8 8 8 4" stroke="#A895FF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>
-  <b>Turn your phone sideways</b>
-  <span>INK RUSH PLAYS IN LANDSCAPE</span>
-</div></div>
+<div id="rotate">
+  <h1><span class="ink">INK</span> RUSH</h1>
+  <p class="rule">Swipe in the direction of the arrow, exactly when the INK token reaches the tip of the candle.</p>
+  <div class="nameRow">
+    <label for="pseudoM">PLAYER</label>
+    <input id="pseudoM" type="text" maxlength="14" placeholder="your name" autocomplete="off" spellcheck="false">
+  </div>
+  <div class="levels">
+    <button id="lvNormalM" type="button"><b>NORMAL</b><span>more time, 4 lives</span></button>
+    <button id="lvHardM" type="button"><b>HARD</b><span>fast, tight, 3 lives</span></button>
+  </div>
+  <div class="turn">
+    <svg width="58" height="58" viewBox="0 0 86 86" fill="none">
+      <rect x="24" y="8" width="38" height="66" rx="7" stroke="#7C5CFF" stroke-width="3"/>
+    </svg>
+    <span>TURN YOUR PHONE SIDEWAYS TO PLAY</span>
+  </div>
+</div>
+
+<div id="swipeIntro">
+  <div class="t">Swipe the way the arrow points</div>
+  <div class="demo">
+    <div class="track"></div>
+    <div class="dot"></div>
+    <svg class="arrow" width="34" height="34" viewBox="0 0 34 34" fill="none">
+      <path d="M6 17h20M20 9l8 8-8 8" stroke="#A895FF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+  <div class="s">UP &middot; DOWN &middot; LEFT &middot; RIGHT &nbsp;·&nbsp; DIAGONAL FOR TWO AT ONCE</div>
+  <div class="go" id="swipeGo">TAP TO START</div>
+</div>
 
 <canvas id="game" aria-label="Ink Rush — keyboard timing game"></canvas>
 
@@ -1948,6 +2031,10 @@ addEventListener('blur', () => {
 
 function goHome() {
   state = 'start';
+  if (typeof isTouch !== 'undefined' && isTouch && innerWidth > innerHeight) {
+    document.body.classList.add('swipeintro');
+    setTimeout(() => { if (state === 'start') { document.body.classList.remove('swipeintro'); startGame(levelKey); } }, 3200);
+  }
   document.getElementById('pauseOverlay').hidden = true;
   document.getElementById('endOverlay').hidden = true;
   document.getElementById('startOverlay').hidden = false;
@@ -1957,7 +2044,8 @@ function goHome() {
 function startGame(key) {
   bootAudio();
   const field = document.getElementById('pseudo');
-  playerName = (field.value || '').trim().slice(0, 14);
+  const fm = document.getElementById('pseudoM');
+  playerName = ((fm && fm.value) || field.value || '').trim().slice(0, 14);
   try { localStorage.setItem('inkrush-name', playerName); } catch (e) {}
   applyLevel(key);
   loadBest();
@@ -1986,11 +2074,55 @@ for (const [id, key] of [['lvNormal', 'normal'], ['lvHard', 'hard'],
 // diagonale déclenche les deux touches à la fois, et un tap sert au martèlement.
 const isTouch = MOB;
 if (isTouch) {
+  document.body.classList.add('touch');
   document.getElementById('hintKeys').hidden = true;
   document.getElementById('hintTouch').hidden = false;
-  const checkOrient = () => document.body.classList.toggle('portrait', innerHeight > innerWidth);
+
+  // Le paramétrage se fait en portrait, où il y a de la hauteur ; le paysage joue.
+  const pm = document.getElementById('pseudoM');
+  pm.value = playerName;
+  pm.addEventListener('input', () => {
+    playerName = pm.value.trim().slice(0, 14);
+    try { localStorage.setItem('inkrush-name', playerName); } catch (e) {}
+    const d = document.getElementById('pseudo'); if (d) d.value = playerName;
+  });
+  for (const [id, key] of [['lvNormalM', 'normal'], ['lvHardM', 'hard']]) {
+    document.getElementById(id).addEventListener('click', e => {
+      e.stopPropagation(); applyLevel(key); loadBest();
+    });
+  }
+
+  const intro = document.getElementById('swipeIntro');
+  const showIntro = on => document.body.classList.toggle('swipeintro', on);
+  let introTimer = null;
+  function launchFromIntro() {
+    if (!document.body.classList.contains('swipeintro')) return;
+    clearTimeout(introTimer); showIntro(false); startGame(levelKey);
+  }
+  intro.addEventListener('click', e => { e.stopPropagation(); launchFromIntro(); });
+  intro.addEventListener('touchend', e => { e.preventDefault(); e.stopPropagation(); launchFromIntro(); }, { passive: false });
+
+  const checkOrient = () => {
+    const portrait = innerHeight > innerWidth;
+    document.body.classList.toggle('portrait', portrait);
+    if (portrait) {
+      clearTimeout(introTimer); showIntro(false);
+      if (state === 'play' || state === 'pause') {   // on met en pause si on tourne en pleine partie
+        state = 'pause'; document.getElementById('pauseOverlay').hidden = false;
+      }
+      return;
+    }
+    // passage en paysage depuis l'accueil : le tutoriel, puis la partie démarre seule
+    if (state === 'start') {
+      bootAudio();
+      showIntro(true);
+      document.getElementById('swipeGo').textContent = 'TAP TO START';
+      clearTimeout(introTimer);
+      introTimer = setTimeout(launchFromIntro, 3200);
+    }
+  };
   addEventListener('resize', checkOrient);
-  addEventListener('orientationchange', () => setTimeout(checkOrient, 200));
+  addEventListener('orientationchange', () => setTimeout(checkOrient, 250));
   checkOrient();
 
   const SWIPE = 26;            // distance à parcourir avant de déclencher
