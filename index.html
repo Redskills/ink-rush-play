@@ -22,7 +22,7 @@
     display: flex; align-items: center; justify-content: center; font-size: 20px; color: #A895FF;
   }
   .overlay .go { font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 13px; letter-spacing: 2px; color: #00D68F; margin-top: 26px; }
-  .levels { display: flex; gap: 12px; justify-content: center; margin: 26px 0 4px 0; }
+  .levels { display: flex; gap: 12px; justify-content: center; margin: 22px 0 4px 0; }
   .levels button {
     flex: 1; max-width: 200px; cursor: pointer; padding: 14px 18px; text-align: left;
     background: #10131F; border: 1px solid #2A2350; border-radius: 12px; color: #C9CDDC;
@@ -108,7 +108,11 @@
     <div class="rank" id="endRank"></div>
     <div class="board" id="endBoard"></div>
     <div class="scope" id="endScope"></div>
-    <div class="go">SPACE TO PLAY AGAIN &middot; ESC FOR MENU &middot; 1 NORMAL &middot; 2 HARD</div>
+    <div class="levels">
+      <button id="lvNormalEnd" type="button"><b>NORMAL <span class="k">1</span></b><span>more time, 4 lives</span></button>
+      <button id="lvHardEnd" type="button"><b>HARD <span class="k">2</span></b><span>fast, tight, 3 lives</span></button>
+    </div>
+    <div class="go">&larr; &rarr; TO CHOOSE &middot; SPACE TO PLAY AGAIN &middot; ESC FOR MENU</div>
   </div>
 </div>
 
@@ -1849,6 +1853,13 @@ addEventListener('keydown', e => {
     return;
   }
   if (state === 'over' || state === 'win') {
+    // les flèches choisissent le niveau sans relancer ; espace relance
+    if (k === 'ArrowLeft' || k === 'ArrowRight') {
+      e.preventDefault();
+      applyLevel(k === 'ArrowLeft' ? 'normal' : 'hard');
+      loadBest();
+      return;
+    }
     if (k === 'r' || k === ' ' || k === 'Enter' || k === '1' || k === '2') {
       e.preventDefault();
       startGame(k === '2' ? 'hard' : k === '1' ? 'normal' : levelKey);
@@ -1903,13 +1914,18 @@ function startGame(key) {
   last = performance.now();
 }
 function markLevel() {
-  document.getElementById('lvNormal').classList.toggle('sel', levelKey === 'normal');
-  document.getElementById('lvHard').classList.toggle('sel', levelKey === 'hard');
+  for (const [id, key] of [['lvNormal', 'normal'], ['lvHard', 'hard'],
+                           ['lvNormalEnd', 'normal'], ['lvHardEnd', 'hard']]) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('sel', levelKey === key);
+  }
 }
 document.getElementById('pseudo').value = playerName;
 document.getElementById('pseudo').addEventListener('pointerdown', e => e.stopPropagation());
-document.getElementById('lvNormal').addEventListener('click', e => { e.stopPropagation(); startGame('normal'); });
-document.getElementById('lvHard').addEventListener('click', e => { e.stopPropagation(); startGame('hard'); });
+for (const [id, key] of [['lvNormal', 'normal'], ['lvHard', 'hard'],
+                         ['lvNormalEnd', 'normal'], ['lvHardEnd', 'hard']]) {
+  document.getElementById(id).addEventListener('click', e => { e.stopPropagation(); startGame(key); });
+}
 
 // ---- Panneau de réglages ----
 function toggleTune(force) {
