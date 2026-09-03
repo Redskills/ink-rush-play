@@ -381,6 +381,15 @@ const sfx = {
   perfect: () => { beep(740, 0.09, 'sine', 0.25); beep(988, 0.12, 'sine', 0.25, 0.07); },
   good: () => beep(620, 0.1, 'sine', 0.2),
   frenzy: () => { [392, 523, 659, 784].forEach((f, i) => beep(f, 0.09, 'triangle', 0.2, i * 0.06)); },
+  // le riff « étoile » des jalons Kraken : deux accords brillants qui alternent vite
+  kraken: () => {
+    const A = [659.3, 784, 987.8, 1318.5], B = [587.3, 784, 987.8, 1174.7];
+    for (let rep2 = 0; rep2 < 2; rep2++) {
+      const base = rep2 * 0.72;
+      A.forEach((f, i) => { beep(f, 0.09, 'square', 0.07, base + i * 0.09); beep(f / 2, 0.09, 'triangle', 0.08, base + i * 0.09); });
+      B.forEach((f, i) => { beep(f, 0.09, 'square', 0.07, base + 0.36 + i * 0.09); beep(f / 2, 0.09, 'triangle', 0.08, base + 0.36 + i * 0.09); });
+    }
+  },
   alarm: () => { beep(400, 0.12, 'square', 0.2); beep(400, 0.12, 'square', 0.2, 0.18); },
   bonus: () => { beep(880, 0.07, 'triangle', 0.22); beep(1175, 0.1, 'triangle', 0.22, 0.06); },
   miss: () => beep(150, 0.22, 'square', 0.18),
@@ -530,7 +539,7 @@ function spawnBeat() {
   if (eventIdx < EVENTS.length && year >= EVENTS[eventIdx].at && worldT > eventToastUntil - 1.4) {
     eventCur = EVENTS[eventIdx++];
     eventDur = (eventCur.img === 'powell' || eventCur.img === 'trump') ? 5.4 : 3.4;
-    if (eventCur.kraken) krakenFx = worldT; // le calamar salue : il monte, tentacules arc-en-ciel
+    if (eventCur.kraken) { krakenFx = worldT; sfx.kraken(); } // le calamar salue, riff étoilé
     eventToastUntil = worldT + eventDur;
     if (eventCur.effect === 'panic') {
       sfx.alarm();
@@ -985,7 +994,21 @@ function arrowPath(dir, s) {
   if (dir === 'right') { ctx.moveTo(-s * 0.55, 0); ctx.lineTo(s * 0.55, 0); ctx.moveTo(s * 0.1, -s * 0.42); ctx.lineTo(s * 0.55, 0); ctx.lineTo(s * 0.1, s * 0.42); }
 }
 function drawCoin(x, y, r, rot, rainbow) {
-  ctx.save(); ctx.translate(x, y); ctx.rotate(rot || 0);
+  ctx.save(); ctx.translate(x, y);
+  if (rainbow) { // surbrillance : anneau décollé du jeton + halo qui pulse
+    const pulse = 0.6 + 0.4 * Math.sin(worldT * 10);
+    ctx.globalAlpha *= 1;
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath(); ctx.arc(0, 0, r + 4, 0, 7); ctx.stroke(); // le trait, à 2 px du bord
+    ctx.globalAlpha = 0.35 * pulse;
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = PAL.gold;
+    ctx.beginPath(); ctx.arc(0, 0, r + 9, 0, 7); ctx.stroke(); // le halo qui respire
+    ctx.globalAlpha = 1;
+  }
+  ctx.rotate(rot || 0);
   const img = rainbow && inkColorImg.complete && inkColorImg.naturalWidth ? inkColorImg : inkImg;
   if (img.complete && img.naturalWidth) {
     ctx.drawImage(img, -r, -r, r * 2, r * 2);
@@ -1097,6 +1120,34 @@ function drawLauncher() {
 
 // Les tentacules arc-en-ciel, dessinées après tout le reste : elles traversent la
 // frise et atteignent le bas de l'écran, comme sur la maquette.
+// Recoloration exacte : on empile l'image des tentacules dans un canvas tampon pour
+// obtenir une forme franche, puis on la teinte en arc-en-ciel (source-in). La découpe
+// est celle du PNG lui-même — impossible de déborder d'un demi-pixel.
+const fxCv = document.createElement('canvas'), fxCtx = fxCv.getContext('2d');
+function paintRainbowTrails(x, top, w, h) {
+  const iw = krakenImg.naturalWidth, ih = krakenImg.naturalHeight;
+  const S = 3; // suréchantillonné : net même en plein écran
+  fxCv.width = Math.round(w * S);
+  fxCv.height = Math.round(h * S);
+  fxCtx.setTransform(1, 0, 0, 1, 0, 0);
+  fxCtx.globalCompositeOperation = 'source-over';
+  fxCtx.clearRect(0, 0, fxCv.width, fxCv.height);
+  for (let i = 0; i < 7; i++) // l'image est à 30 % d'opacité : on l'empile
+    fxCtx.drawImage(krakenImg, 0, KRAKEN_HEAD_PX, iw, ih - KRAKEN_HEAD_PX, 0, 0, fxCv.width, fxCv.height);
+  fxCtx.globalCompositeOperation = 'source-in';
+  const g = fxCtx.createLinearGradient(0, 0, 0, fxCv.height);
+  g.addColorStop(0.00, '#7032ED');
+  g.addColorStop(0.18, '#C84BCE');
+  g.addColorStop(0.40, '#4F6BF5');
+  g.addColorStop(0.58, '#35B3BF');
+  g.addColorStop(0.76, '#41D550');
+  g.addColorStop(1.00, '#E4C950');
+  fxCtx.fillStyle = g;
+  fxCtx.fillRect(0, 0, fxCv.width, fxCv.height);
+  fxCtx.globalCompositeOperation = 'source-over';
+  ctx.drawImage(fxCv, x, top, w, h);
+}
+
 function drawKrakenBands() {
   const b = krakenBand;
   if (!b || !krakenImg.complete || !krakenImg.naturalWidth) return;
@@ -1115,20 +1166,7 @@ function drawKrakenBands() {
     return;
   }
   ctx.globalAlpha = b.rise;
-  const g = ctx.createLinearGradient(0, b.top - b.hh * 0.5, 0, H);
-  g.addColorStop(0.00, '#7032ED');
-  g.addColorStop(0.20, '#C158F0');
-  g.addColorStop(0.37, '#4F6BF5');
-  g.addColorStop(0.54, '#31C8D6');
-  g.addColorStop(0.71, '#4BD97F');
-  g.addColorStop(0.86, '#B6E24A');
-  g.addColorStop(1.00, '#F5D93A');
-  ctx.fillStyle = g;
-  // positions relevées au pixel dans le PNG : x = 16/60/104/152, largeur 20, sur 188
-  const bw = b.w * (20 / 188);
-  for (const lx of [16, 60, 104, 152]) {
-    ctx.fillRect(b.x + b.w * (lx / 188), b.top - b.hh * 0.42, bw, H - (b.top - b.hh * 0.42));
-  }
+  paintRainbowTrails(b.x, b.top - 1, b.w, H - b.top + 1);
   ctx.globalAlpha = 1;
   // la tête par-dessus : la jonction reste parfaite
   ctx.drawImage(krakenImg, 0, 0, iw, KRAKEN_HEAD_PX, b.x, b.headTop, b.w, b.hh);
@@ -1546,8 +1584,11 @@ function render() {
   for (let i = 0; i < CFG.lives; i++) { ctx.fillStyle = i < lives ? PAL.purple : '#262C3F'; ctx.beginPath(); ctx.arc(1396 - (CFG.lives - 1 - i) * 20, 50, 6, 0, 7); ctx.fill(); }
 
   // ---- Timeline ----
+  // le fond d'abord, PUIS le calamar, PUIS la barre et les dates : les tentacules
+  // descendent jusqu'en bas mais passent DERRIÈRE la progression.
   ctx.fillStyle = PAL.panel; ctx.fillRect(0, 800, W, 100);
   ctx.strokeStyle = PAL.grid; ctx.beginPath(); ctx.moveTo(0, 800); ctx.lineTo(W, 800); ctx.stroke();
+  drawKrakenBands();
   const tl = { x: 48, w: W - 96, y: 838 };
   const prog = clamp(tick / CFG.totalTicks, 0, 1);
   ctx.fillStyle = '#161C2C'; rr(tl.x, tl.y, tl.w, 8, 4); ctx.fill();
@@ -1582,7 +1623,6 @@ function render() {
   });
   ctx.textAlign = 'right'; ctx.fillText('2027', tl.x + tl.w, tl.y + 38);
 
-  drawKrakenBands(); // tout en dernier : les brins traversent la frise jusqu'en bas
 }
 
 // ---- Boucle ----
