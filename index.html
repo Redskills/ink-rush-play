@@ -258,7 +258,7 @@ const EVENTS = [
   { at: 2017.96, title: 'DECEMBER 2017 — BITCOIN TOPS $19,000',      icon: 'rocket', effect: 'fomo' },
   { at: 2018.05, title: 'FEBRUARY 2018 — POWELL TAKES THE FED',      img: 'powell',  effect: 'crash' },
   { at: 2020.20, title: 'MARCH 2020 — COVID BLACK THURSDAY, -50%',   icon: 'virus',  effect: 'covid' },
-  { at: 2020.24, title: 'APRIL 2020 — NEW LIQUIDITY IN THE MARKET',   icon: 'printer', effect: 'mega' },
+  { at: 2020.24, title: 'APRIL 2020 — NEW LIQUIDITY IN THE MARKET',   icon: 'printer', effect: 'mega', hero: 2.2 },
   { at: 2020.71, title: 'SEPTEMBER 2020 — KRAKEN, FIRST CRYPTO BANK', icon: 'bank',  effect: 'fomo',    kraken: true },
   { at: 2021.10, title: 'FEBRUARY 2021 — TESLA BUYS $1.5B IN BTC',   icon: 'rocket', effect: 'fomo' },
   { at: 2022.85, title: 'MAY–NOV 2022 — TERRA LUNA, THEN FTX',       icon: 'crack',  effect: 'crash' },
@@ -418,6 +418,7 @@ let candles, beat, coin, missCoin, particles, floaters;
 let launchFx = -9, reloadAt = -9, krakenFx = -99, crashFlash = -99;
 let burstLeft = 0, burstGreen = true, burstCooldown = 0, burstFx = -99;
 let haltUntil = -99, crashPower = 1, frenzyMult = 3, finaleUntil = -99;
+let heroFx = -99, heroIcon = null, heroDur = 0;
 let krakenBand = null;
 const KRAKEN_FX_DUR = 1.9; // montée, palier bien visible, descente
 const rainbowNow = () => worldT - krakenFx >= 0 && worldT - krakenFx < KRAKEN_FX_DUR;
@@ -473,6 +474,7 @@ function reset() {
   launchFx = -9; reloadAt = -9; krakenFx = -99; crashFlash = -99;
   burstLeft = 0; burstCooldown = 26; burstFx = -99;
   haltUntil = -99; crashPower = 1; frenzyMult = 3; finaleUntil = -99;
+  heroFx = -99; heroIcon = null;
   yearFx = { year: 2008, t: 1 };
   lastEraLabel = '';
   lastWasPanic = false;
@@ -561,8 +563,9 @@ function spawnBeat() {
   const evReady = nextEv && (nextEv.effect !== 'covid' || worldT >= frenzyUntil);
   if (evReady && year >= nextEv.at && worldT > eventToastUntil - 1.4) {
     eventCur = EVENTS[eventIdx++];
-    eventDur = (eventCur.img === 'powell' || eventCur.img === 'trump') ? 5.4 : 3.4;
+    eventDur = (eventCur.img === 'powell' || eventCur.img === 'trump') ? 5.4 : eventCur.hero ? 5 : 3.4;
     if (eventCur.kraken) { krakenFx = worldT; sfx.kraken(); } // le calamar salue, riff étoilé
+    if (eventCur.hero) { heroFx = worldT; heroIcon = eventCur.icon; heroDur = eventCur.hero; }
     eventToastUntil = worldT + eventDur;
     if (eventCur.effect === 'panic') {
       sfx.alarm();
@@ -940,7 +943,8 @@ const fmtPrice = v => v >= 1000 ? '$' + Math.round(v / 1000) + 'K' : '$' + v;
 // pictos d'actus, en trait monochrome
 function drawEventIcon(kind, cx, cy) {
   ctx.save();
-  ctx.strokeStyle = PAL.text; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.strokeStyle = kind === 'printer' ? PAL.gold : PAL.text;
+  ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   ctx.beginPath();
   if (kind === 'pizza') {
     ctx.moveTo(cx - 44, cy - 34); ctx.quadraticCurveTo(cx, cy - 52, cx + 44, cy - 34);
@@ -1377,6 +1381,24 @@ function render() {
       gsw.addColorStop(1, 'rgba(' + tintS + ',0)');
       ctx.fillStyle = gsw; ctx.fillRect(0, 79, W, 721);
     }
+  }
+  // Le picto de l'événement, en grand au centre : impossible de le rater
+  if (heroIcon && worldT - heroFx < heroDur) {
+    const u = (worldT - heroFx) / heroDur;
+    const a = clamp(Math.min(u / 0.12, (1 - u) / 0.25), 0, 1);
+    const pop = u < 0.12 ? easeOutBack(u / 0.12) : 1;
+    ctx.save();
+    ctx.globalAlpha = a * 0.8;
+    ctx.translate(720, 545); // sous la zone de visée : on le voit sans être gêné
+    ctx.scale(pop * 2.1, pop * 2.1);
+    // halo doré derrière
+    const hg = ctx.createRadialGradient(0, 0, 10, 0, 0, 130);
+    hg.addColorStop(0, 'rgba(255,201,60,0.20)');
+    hg.addColorStop(1, 'rgba(255,201,60,0)');
+    ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(0, 0, 130, 0, 7); ctx.fill();
+    ctx.lineWidth = 2.4;
+    drawEventIcon(heroIcon, 0, 0);
+    ctx.restore();
   }
   // Cotations suspendues : l'écran se fige, tout s'assombrit
   if (worldT < haltUntil) {
