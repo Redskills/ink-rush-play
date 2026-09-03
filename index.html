@@ -51,6 +51,7 @@
   .board div span:first-child { flex: none; width: 26px; color: #6B7390; text-align: right; }
   .board div span:nth-child(2) { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .board div.me span { color: #E8EAF2; }
+  .scope { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 2px; color: #4A5169; margin-top: 10px; }
   .overlay .small { font-size: 12px; color: #6B7390; }
   .overlay .stat { font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 15px; margin: 4px 0; }
   .overlay .stat b { color: #00D68F; font-weight: 600; }
@@ -106,6 +107,7 @@
     <div class="stat">Best combo: <b id="endCombo"></b></div>
     <div class="rank" id="endRank"></div>
     <div class="board" id="endBoard"></div>
+    <div class="scope" id="endScope"></div>
     <div class="go">SPACE TO PLAY AGAIN &middot; ESC FOR MENU &middot; 1 NORMAL &middot; 2 HARD</div>
   </div>
 </div>
@@ -431,7 +433,35 @@ loadBest();
 // Pseudo et classement, gardés dans le navigateur du joueur
 let playerName = '';
 try { playerName = localStorage.getItem('inkrush-name') || ''; } catch (e) {}
+// ---------------------------------------------------------------------------
+// CLASSEMENT PARTAGÉ
+// Renseigne une URL ci-dessous et le classement devient commun à tous les joueurs,
+// sur toutes les machines. Tant qu'elle est vide, il reste local au navigateur.
+// Le serveur doit répondre à :
+//   GET  <URL>?level=normal        -> [{ n: "nom", s: 123, t: 1690000000000 }, ...]
+//   POST <URL>  { level, n, s, t } -> enregistre le score
+const SCORE_API = '';
 const boardKey = () => 'inkrush-board-' + levelKey;
+
+async function fetchRemoteBoard() {
+  if (!SCORE_API) return null;
+  try {
+    const r = await fetch(SCORE_API + '?level=' + encodeURIComponent(levelKey), { cache: 'no-store' });
+    if (!r.ok) return null;
+    const rows = await r.json();
+    return Array.isArray(rows) ? rows : null;
+  } catch (e) { return null; }
+}
+async function pushRemoteScore(entry) {
+  if (!SCORE_API) return;
+  try {
+    await fetch(SCORE_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ level: levelKey, n: entry.n, s: entry.s, t: entry.t }),
+    });
+  } catch (e) {}
+}
 function loadBoard() {
   try { const raw = JSON.parse(localStorage.getItem(boardKey()) || '[]'); return Array.isArray(raw) ? raw : []; }
   catch (e) { return []; }
@@ -446,8 +476,10 @@ function saveScore(name, score) {
   try { localStorage.setItem(boardKey(), JSON.stringify(kept)); } catch (e) {}
   return { rank, total, board: kept, entry };
 }
-function renderBoard(res) {
+function renderBoard(res, scope) {
   const rk = document.getElementById('endRank'), el = document.getElementById('endBoard');
+  const sc = document.getElementById('endScope');
+  if (sc) sc.textContent = scope === 'global' ? 'ALL PLAYERS, ALL DEVICES' : 'THIS DEVICE ONLY';
   const n = res.rank;
   const suffix = n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd'
                : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th';
@@ -916,7 +948,19 @@ function gameEnd(won) {
   document.getElementById('endSub').textContent = L.label + ' · ' + (won ? (inkLaunched ? '2008 → 2026 · YOU MADE IT TO THE TOKEN LAUNCH' : '2008 → 2027 · FULL RUN') : 'REACHED ' + Math.floor(yearOf(Math.max(0, tick - 1))));
   document.getElementById('endPnl').textContent = fmt$(pnl);
   document.getElementById('endCombo').textContent = '×' + bestCombo;
-  renderBoard(saveScore(playerName || 'ANON', pnl));
+  const local = saveScore(playerName || 'ANON', pnl);
+  renderBoard(local, 'local');
+  // si un serveur de scores est configuré, on publie puis on réaffiche le vrai classement
+  (async () => {
+    if (!SCORE_API) return;
+    await pushRemoteScore(local.entry);
+    const rows = await fetchRemoteBoard();
+    if (!rows) return;
+    rows.sort((a, b) => b.s - a.s || a.t - b.t);
+    const mine = rows.findIndex(r => r.t === local.entry.t && r.n === local.entry.n);
+    renderBoard({ rank: (mine < 0 ? rows.length : mine) + 1, total: rows.length,
+                  board: rows.slice(0, 20), entry: mine >= 0 ? rows[mine] : local.entry }, 'global');
+  })();
   document.getElementById('endOverlay').hidden = false;
 }
 
