@@ -262,7 +262,7 @@ const LEVELS = {
   // eth / sol = quels jetons bonus apparaissent · dualBonus = part des jetons à deux flèches
   // endMul = à quel point la fin du run accélère (1 = autant que DIFFICILE)
   normal:    { label: 'NORMAL',    beat: 1.3,  flight: 1.2,  win: 1.32, panic: 1.25, dual: 0.28, dualTime: 1.45, endMul: 1.18, lives: 4, minLead: 0.7,  eth: true, sol: false, dualBonus: 0 },
-  hard:      { label: 'HARD',      beat: 0.92, flight: 0.96, win: 1.06, panic: 1.05, dual: 1,    dualTime: 1.12, endMul: 1,    lives: 3, minLead: 0.46, eth: true, sol: true,  dualBonus: 0.45 },
+  hard:      { label: 'HARD',      beat: 0.97, flight: 1.0,  win: 1.16, panic: 1.1,  dual: 1,    dualTime: 1.18, endMul: 1,    lives: 3, minLead: 0.52, eth: true, sol: true,  dualBonus: 0.45 },
 };
 let levelKey = 'normal';
 try { levelKey = localStorage.getItem('inkrush-level') || 'normal'; } catch (e) {}
@@ -891,7 +891,8 @@ function resolve(result, label, color) {
     if (lives <= 0) return gameEnd(false);
   } else {
     const base = Math.round(c.body + c.wick);
-    const gain = Math.round(base * (result === 'perfect' ? 2.2 : 1) * (1 + combo * 0.08) * 10
+    // le multiplicateur de combo plafonne à ×3 : le score reste un compteur lisible
+    const gain = Math.round(base * (result === 'perfect' ? 2.2 : 1) * (1 + Math.min(combo, 25) * 0.08) * 10
                  * (beat.frenzy ? beat.mult : 1) * (c.big ? 2.4 : 1)); // la grosse bougie paie bien plus
     pnl += gain; combo++; bestCombo = Math.max(bestCombo, combo);
     c.done = true; c.rainbow = beat.rainbow; coin = null;
@@ -983,7 +984,7 @@ function spawnPump() {
   tick++;
 }
 
-const pumpValue = n => Math.round((40 + n * 24) * (1 + combo * 0.05)); // chaque frappe vaut plus
+const pumpValue = n => Math.round((40 + n * 24) * (1 + Math.min(combo, 30) * 0.05)); // chaque frappe vaut plus
 
 function pumpPress(dir) {
   if (dir !== 'up' || worldT < beat.tStart || worldT > beat.tEnd) return;
@@ -1004,7 +1005,7 @@ function resolvePump() {
   beat.resolved = true;
   const earned = beat.earned || 0;
   if (beat.count >= CFG.pumpTarget) {
-    const bonus = Math.round(600 * (1 + combo * 0.08));
+    const bonus = Math.round(600 * (1 + Math.min(combo, 25) * 0.08));
     pnl += bonus; combo++; bestCombo = Math.max(bestCombo, combo);
     sfx.perfect(); burst(CX, 380, 16, PAL.green);
     // le total affiché est exactement ce qui a été encaissé
@@ -1049,7 +1050,7 @@ function panicPress(dir) {
     if (dir !== 'down') return;
     beat.count++;
     beat.lastPressAt = worldT;
-    const g = Math.round((60 + beat.count * 14) * (1 + combo * 0.05));
+    const g = Math.round((60 + beat.count * 14) * (1 + Math.min(combo, 30) * 0.05));
     pnl += g;
     beat.earned = (beat.earned || 0) + g;
     addFloater(fmt$(g), CX + rand(-90, 90), 292 + rand(-14, 14), PAL.red, 15 + Math.min(15, beat.count));
@@ -1060,7 +1061,7 @@ function panicPress(dir) {
   }
   if (dir === beat.seq[beat.pos]) {
     beat.pos++;
-    pnl += Math.round(120 * (1 + combo * 0.05));
+    pnl += Math.round(120 * (1 + Math.min(combo, 30) * 0.05));
     shake = Math.max(shake, 3 * CFG.shake);
     beep(Math.max(200, 560 - beat.pos * 30), 0.06, 'square', 0.16);
     dropRedCandle(); // le flash crash décroche à chaque flèche
@@ -1080,7 +1081,7 @@ function resolvePanic(seqComplete) {
   const full = isMash ? beat.count >= CFG.panicTarget : seqComplete;
   const partial = isMash ? beat.count >= 6 : beat.pos >= beat.seq.length * 0.7;
   if (full) {
-    const gain = Math.round((isMash ? 800 : 150 * beat.seq.length) * (1 + combo * 0.08));
+    const gain = Math.round((isMash ? 800 : 150 * beat.seq.length) * (1 + Math.min(combo, 25) * 0.08));
     pnl += gain; combo++; bestCombo = Math.max(bestCombo, combo);
     shake = 8 * CFG.shake; hitstop = 0.07;
     sfx.perfect(); burst(x, 430, 18, PAL.red);
@@ -1114,7 +1115,7 @@ function press(dir) {
       if (bn.keys.every(k => bn.hit[k])) {
         bn.done = true;
         const K = COIN[bn.kind] || COIN.btc;
-        const gain = Math.round(K.gain * (1 + combo * 0.08) * (bn.keys.length > 1 ? 1.6 : 1));
+        const gain = Math.round(K.gain * (1 + Math.min(combo, 25) * 0.08) * (bn.keys.length > 1 ? 1.6 : 1));
         pnl += gain; sfx.bonus();
         const pos = bezPoint(beat.c, bn.p);
         burst(pos.x, pos.y, 10, K.col);
@@ -1163,9 +1164,11 @@ function gameEnd(won) {
       player: playerName || 'ANON',
       device_id: deviceId,
       level: levelKey,
-      score: Math.round(pnl),
-      best_combo: bestCombo,
-      year_reached: Math.floor(yearOf(Math.max(0, tick - 1))),
+      score: Math.max(-1e9, Math.min(1e9, Math.round(pnl))),
+      best_combo: Math.min(5000, bestCombo),
+      // pendant le bouquet final l'horloge file jusqu'en 2028 : on borne, sinon
+      // la base refusait la ligne et chaque partie GAGNÉE était perdue en silence
+      year_reached: Math.min(2027, Math.max(2008, Math.floor(yearOf(Math.max(0, tick - 1))))),
       won: !!won,
       duration_s: Math.min(7200, Math.max(0, Math.round((Date.now() - runStartMs) / 1000))),
       device_kind: MOB ? 'mobile' : 'desktop',
@@ -1603,9 +1606,18 @@ function render() {
       }
       ctx.globalAlpha = 1;
     }
+    if (b.kind === 'sol') {
+      // Solana reconnaissable : disque sombre, barres dans le vrai dégradé vert → violet
+      const grad = ctx.createLinearGradient(pos.x, pos.y - 12, pos.x, pos.y + 12);
+      grad.addColorStop(0, '#14F195'); grad.addColorStop(1, '#9945FF');
+      ctx.fillStyle = '#10142A'; ctx.strokeStyle = grad; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(pos.x, pos.y, 14, 0, 7); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = grad;
+    } else {
     ctx.fillStyle = COL; ctx.strokeStyle = K.ring; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(pos.x, pos.y, 14, 0, 7); ctx.fill(); ctx.stroke();
     ctx.fillStyle = '#0A0D16';
+    }
     if (b.kind === 'eth') { // le losange Ethereum, dessiné : deux moitiés comme le vrai logo
       ctx.beginPath();
       ctx.moveTo(pos.x, pos.y - 8.5); ctx.lineTo(pos.x + 5.4, pos.y - 0.4);
