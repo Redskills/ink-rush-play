@@ -1,9 +1,22 @@
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
 <title>Ink Rush v0</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
   /* Parti pris : monde néon nocturne unique (pas de thème clair), tout est peint explicitement. */
   html, body { height: 100%; }
+  html, body, canvas { touch-action: none; -webkit-user-select: none; user-select: none;
+                       -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+  /* écran de rotation : le jeu se joue à l'horizontale */
+  #rotate {
+    position: fixed; inset: 0; z-index: 40; display: none;
+    background: #06080F; color: #E8EAF2; text-align: center;
+    align-items: center; justify-content: center; padding: 32px;
+  }
+  #rotate b { display: block; font-size: 22px; letter-spacing: 1px; margin-bottom: 10px; }
+  #rotate span { font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 2px; color: #6B7390; }
+  #rotate svg { display: block; margin: 0 auto 26px auto; }
+  body.portrait #rotate { display: flex; }
   body { margin: 0; background: #06080F; overflow: hidden; font-family: 'Space Grotesk', 'Helvetica Neue', Arial, sans-serif; }
   canvas { display: block; }
   [hidden] { display: none !important; }
@@ -73,20 +86,54 @@
   #tune input[type=range] { width: 100%; accent-color: #7C5CFF; }
   #tune .val { color: #E8EAF2; float: right; }
   :focus-visible { outline: 2px solid #A895FF; outline-offset: 2px; }
+  /* Tactile : moins de texte, mais bien plus lisible */
+  @media (pointer: coarse) {
+    .overlay .card { padding: 18px; max-width: 620px; }
+    .overlay h1 { font-size: 40px; margin-bottom: 2px; }
+    .overlay .sub { font-size: 12px; margin-bottom: 14px; }
+    .overlay p { font-size: 19px; line-height: 1.45; margin: 6px 0; }
+    .overlay .small { font-size: 15px; }
+    .overlay .keys, .overlay .stat + .rank { margin: 12px 0; }
+    .overlay .key { width: 54px; height: 54px; font-size: 24px; }
+    .overlay .go { font-size: 16px; margin-top: 16px; }
+    .overlay .stat { font-size: 19px; }
+    .rank { font-size: 17px; } .rank b { font-size: 24px; }
+    .board { width: 420px; font-size: 16px; }
+    .board div { padding: 8px 14px; }
+    .scope { font-size: 12px; }
+    .nameRow input { width: 260px; font-size: 19px; padding: 13px 16px; }
+    .nameRow label { font-size: 13px; }
+    .levels button { padding: 16px 18px; }
+    .levels button b { font-size: 19px; }
+    .levels button span { font-size: 13px; }
+    .hideOnTouch { display: none !important; }
+    .showOnTouch[hidden] { display: block !important; }
+  }
 </style>
+
+<div id="rotate"><div>
+  <svg width="86" height="86" viewBox="0 0 86 86" fill="none">
+    <rect x="24" y="8" width="38" height="66" rx="7" stroke="#7C5CFF" stroke-width="3"/>
+    <path d="M14 62a34 34 0 0 0 12 12" stroke="#A895FF" stroke-width="3" stroke-linecap="round"/>
+    <path d="M22 66l-8 8 8 4" stroke="#A895FF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <b>Turn your phone sideways</b>
+  <span>INK RUSH PLAYS IN LANDSCAPE</span>
+</div></div>
 
 <canvas id="game" aria-label="Ink Rush — keyboard timing game"></canvas>
 
 <div class="overlay" id="startOverlay">
   <div class="card">
     <h1><span class="ink">INK</span> RUSH</h1>
-    <div class="sub">BTC/USD &middot; 2008&#8594;2027</div>
+    <div class="sub hideOnTouch">BTC/USD &middot; 2008&#8594;2027</div>
     <p>An <b>INK</b> token is thrown at every candle.<br>
     Press the arrow shown <b>exactly</b> when it reaches the tip of the wick.</p>
-    <div class="keys"><span class="key">&#8592;</span><span class="key">&#8593;</span><span class="key">&#8595;</span><span class="key">&#8594;</span></div>
-    <p class="small" style="color: #FFC93C;">A &#8383; token drifts across: hit its arrow (or <b>B</b>) as you pass &rarr; bonus, no risk.</p>
-    <p class="small" style="color: #FF4D5E;">When it screams PANIC SELL, run the arrow sequence in order.</p>
-    <p class="small">Arrow keys or WASD &middot; sometimes two at once<br>Space pause &middot; N new run &middot; Esc menu &middot; M mute &middot; T tuning</p>
+    <div class="keys hideOnTouch"><span class="key">&#8592;</span><span class="key">&#8593;</span><span class="key">&#8595;</span><span class="key">&#8594;</span></div>
+    <p class="small hideOnTouch" style="color: #FFC93C;">A &#8383; token drifts across: hit its arrow (or <b>B</b>) as you pass &rarr; bonus, no risk.</p>
+    <p class="small hideOnTouch" style="color: #FF4D5E;">When it screams PANIC SELL, run the arrow sequence in order.</p>
+    <p class="small" id="hintKeys">Arrow keys or WASD &middot; sometimes two at once<br>Space pause &middot; N new run &middot; Esc menu &middot; M mute &middot; T tuning</p>
+    <p class="small" id="hintTouch" hidden>Swipe up, down, left or right &middot; swipe diagonally for two at once<br>Tap fast when the game asks for it</p>
     <div class="nameRow">
       <label for="pseudo">PLAYER</label>
       <input id="pseudo" type="text" maxlength="14" placeholder="your name" autocomplete="off" spellcheck="false">
@@ -95,7 +142,8 @@
       <button id="lvNormal" type="button"><b>NORMAL <span class="k">1</span></b><span>more time, 4 lives</span></button>
       <button id="lvHard" type="button"><b>HARD <span class="k">2</span></b><span>fast, tight, 3 lives</span></button>
     </div>
-    <div class="go">&larr; &rarr; TO CHOOSE &middot; SPACE TO START</div>
+    <div class="go hideOnTouch">&larr; &rarr; TO CHOOSE &middot; SPACE TO START</div>
+    <div class="go showOnTouch" hidden>TAP A LEVEL TO START</div>
   </div>
 </div>
 
@@ -112,12 +160,13 @@
       <button id="lvNormalEnd" type="button"><b>NORMAL <span class="k">1</span></b><span>more time, 4 lives</span></button>
       <button id="lvHardEnd" type="button"><b>HARD <span class="k">2</span></b><span>fast, tight, 3 lives</span></button>
     </div>
-    <div class="go">&larr; &rarr; TO CHOOSE &middot; SPACE TO PLAY AGAIN &middot; ESC FOR MENU</div>
+    <div class="go hideOnTouch">&larr; &rarr; TO CHOOSE &middot; SPACE TO PLAY AGAIN &middot; ESC FOR MENU</div>
+    <div class="go showOnTouch" hidden>TAP A LEVEL TO PLAY AGAIN</div>
   </div>
 </div>
 
 <div class="overlay" id="pauseOverlay" hidden>
-  <div class="card"><h1>PAUSE</h1><div class="go">SPACE OR CLICK TO RESUME &middot; ESC FOR MENU &middot; N FOR A NEW RUN</div></div>
+  <div class="card"><h1>PAUSE</h1><div class="go hideOnTouch">SPACE OR CLICK TO RESUME &middot; ESC FOR MENU &middot; N FOR A NEW RUN</div><div class="go showOnTouch" hidden>TAP TO RESUME</div></div>
 </div>
 
 <div id="tune" hidden>
@@ -276,6 +325,8 @@ powellImg.src = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD/4QCGRXhpZgAA
 
 // ---- Monde virtuel 1440x900, mis à l'échelle de la fenêtre ----
 const W = 1440, H = 900;
+// sur tactile, l'écran est petit : on grossit l'essentiel et on retire le décoratif
+const MOB = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 const ZOOM = 0.95; // vue légèrement dézoomée : on voit plus de graphique
 const CHART_TOP = 130, CHART_BOT = 700, ACTIVE_X = 920, SPACING = 88, BODY_W = 34;
 // origine du graphique : bien au-delà du dégradé de gauche, pour que la 1re bougie se voie
@@ -1598,8 +1649,9 @@ function render() {
 
   // les paliers de prix se lisent par-dessus le dégradé de droite
   ctx.font = '500 9px "IBM Plex Mono"'; ctx.textAlign = 'right'; ctx.fillStyle = PAL.faint;
-  let lastLabel = null;
-  for (let ys = GRID_BASE; ys > 90; ys -= GRID_STEP) {
+  let lastLabel = MOB ? 'off' : null;
+  if (MOB) lastLabel = null;
+  if (!MOB) for (let ys = GRID_BASE; ys > 90; ys -= GRID_STEP) {
     const lab = fmtPrice(priceAt(ys + camY));
     if (lab === lastLabel) continue; // pas deux fois le même palier
     lastLabel = lab;
@@ -1612,7 +1664,7 @@ function render() {
   // la note suivante s'annonce ici, toujours au même endroit : on la voit venir de loin
   if (state === 'play' && upcoming && beat && !beat.resolved && beat.c) {
     ctx.globalAlpha = 0.42;
-    ctx.font = '500 9px "IBM Plex Mono"'; ctx.textAlign = 'center';
+    ctx.font = '500 ' + (MOB ? 14 : 9) + 'px "IBM Plex Mono"'; ctx.textAlign = 'center';
     ctx.fillStyle = PAL.muted; ctx.fillText('NEXT', LAUNCH.x, LAUNCH.y - 92);
     ctx.fillStyle = upcoming.green ? PAL.green : PAL.red;
     ctx.beginPath(); ctx.arc(LAUNCH.x - 46, LAUNCH.y - 95, 3.5, 0, 7); ctx.fill();
@@ -1636,7 +1688,7 @@ function render() {
     ctx.translate(0, (1 - a) * -12);
 
     // le titre se plie sur deux lignes si besoin
-    ctx.font = '700 30px "Space Grotesk"';
+    ctx.font = '700 ' + (MOB ? 36 : 30) + 'px "Space Grotesk"';
     const maxW = 820, lns = [];
     let cur = '';
     for (const w of head.split(' ')) {
@@ -1706,10 +1758,10 @@ function render() {
     ctx.textAlign = 'left';
     ctx.fillStyle = tint;
     ctx.beginPath(); ctx.arc(txX + 4, baseY - 26, 4, 0, 7); ctx.fill();
-    ctx.font = '500 11px "IBM Plex Mono"';
+    ctx.font = '500 ' + (MOB ? 15 : 11) + 'px "IBM Plex Mono"';
     ctx.fillText(when.toUpperCase(), txX + 16, baseY - 22);
     ctx.fillStyle = PAL.text; // le titre en clair : c'est ce qui doit se lire
-    ctx.font = '700 30px "Space Grotesk"';
+    ctx.font = '700 ' + (MOB ? 36 : 30) + 'px "Space Grotesk"';
     lns.forEach((ln, i) => ctx.fillText(ln, txX, baseY + 12 + i * 34));
     ctx.restore();
   }
@@ -1719,21 +1771,23 @@ function render() {
   ctx.strokeStyle = PAL.grid; ctx.beginPath(); ctx.moveTo(0, 78); ctx.lineTo(W, 78); ctx.stroke();
   ctx.textBaseline = 'alphabetic';
   ctx.textAlign = 'left';
-  ctx.fillStyle = PAL.text; ctx.font = '700 20px "Space Grotesk"'; ctx.fillText('INK RUSH', 36, 40);
-  ctx.fillStyle = PAL.faint; ctx.font = '500 10px "IBM Plex Mono"'; ctx.fillText('BTC/USD · 2008→2027 · ' + L.label, 36, 58);
+  ctx.fillStyle = PAL.text; ctx.font = '700 ' + (MOB ? 30 : 20) + 'px "Space Grotesk"';
+  ctx.fillText('INK RUSH', 36, MOB ? 50 : 40);
+  if (!MOB) { ctx.fillStyle = PAL.faint; ctx.font = '500 10px "IBM Plex Mono"';
+    ctx.fillText('BTC/USD · 2008→2027 · ' + L.label, 36, 58); }
   // chip d'époque
   ctx.textAlign = 'center';
   const chip = era.label + ' · ' + mon + ' ' + year;
-  ctx.font = '500 12px "IBM Plex Mono"';
+  ctx.font = '500 ' + (MOB ? 17 : 12) + 'px "IBM Plex Mono"';
   const cw = ctx.measureText(chip).width + 46;
   ctx.fillStyle = '#131028'; ctx.strokeStyle = '#2A2350'; ctx.lineWidth = 1;
   rr(W / 2 - cw / 2, 22, cw, 34, 17); ctx.fill(); ctx.stroke();
   ctx.fillStyle = era.bias >= 0.5 ? PAL.green : PAL.red; ctx.beginPath(); ctx.arc(W / 2 - cw / 2 + 20, 39, 4, 0, 7); ctx.fill();
   ctx.fillStyle = '#C9CDDC'; ctx.fillText(chip, W / 2 + 8, 43);
   // stats droite
-  ctx.textAlign = 'right'; ctx.font = '500 9px "IBM Plex Mono"'; ctx.fillStyle = PAL.faint;
-  ctx.fillText('P&L', 1150, 30); ctx.fillText('COMBO', 1270, 30); ctx.fillText('LIVES', 1396, 30);
-  ctx.font = '600 19px "IBM Plex Mono"';
+  ctx.textAlign = 'right'; ctx.font = '500 ' + (MOB ? 13 : 9) + 'px "IBM Plex Mono"'; ctx.fillStyle = PAL.faint;
+  ctx.fillText('P&L', 1150, 28); ctx.fillText('COMBO', 1270, 28); ctx.fillText('LIVES', 1396, 28);
+  ctx.font = '600 ' + (MOB ? 26 : 19) + 'px "IBM Plex Mono"';
   ctx.fillStyle = pnl >= 0 ? PAL.green : PAL.red; ctx.fillText(fmt$(pnl), 1150, 56);
   ctx.fillStyle = PAL.purpleHi; ctx.fillText('×' + combo, 1270, 56);
   for (let i = 0; i < CFG.lives; i++) { ctx.fillStyle = i < lives ? PAL.purple : '#262C3F'; ctx.beginPath(); ctx.arc(1396 - (CFG.lives - 1 - i) * 20, 50, 6, 0, 7); ctx.fill(); }
@@ -1769,10 +1823,10 @@ function render() {
   });
   ctx.fillStyle = PAL.bg; ctx.strokeStyle = PAL.purpleHi; ctx.lineWidth = 3;
   ctx.beginPath(); ctx.arc(tl.x + tl.w * prog, tl.y + 4, 9, 0, 7); ctx.fill(); ctx.stroke();
-  ctx.font = '600 14px "IBM Plex Mono"'; ctx.fillStyle = PAL.purpleHi;
+  ctx.font = '600 ' + (MOB ? 20 : 14) + 'px "IBM Plex Mono"'; ctx.fillStyle = PAL.purpleHi;
   ctx.textAlign = 'left'; ctx.fillText('2008', tl.x, tl.y + 38);
   ctx.textAlign = 'center';
-  [2012, 2016, 2020, 2024].forEach(y => {
+  (MOB ? [2016] : [2012, 2016, 2020, 2024]).forEach(y => {
     const f = (y - 2008) * CFG.perYear / CFG.totalTicks;
     ctx.fillText(String(y), tl.x + tl.w * f, tl.y + 38);
   });
@@ -1925,6 +1979,65 @@ document.getElementById('pseudo').addEventListener('pointerdown', e => e.stopPro
 for (const [id, key] of [['lvNormal', 'normal'], ['lvHard', 'hard'],
                          ['lvNormalEnd', 'normal'], ['lvHardEnd', 'hard']]) {
   document.getElementById(id).addEventListener('click', e => { e.stopPropagation(); startGame(key); });
+}
+
+// ---------------------------------------------------------------------------
+// TACTILE : on glisse le doigt dans la direction de la flèche demandée. Une
+// diagonale déclenche les deux touches à la fois, et un tap sert au martèlement.
+const isTouch = MOB;
+if (isTouch) {
+  document.getElementById('hintKeys').hidden = true;
+  document.getElementById('hintTouch').hidden = false;
+  const checkOrient = () => document.body.classList.toggle('portrait', innerHeight > innerWidth);
+  addEventListener('resize', checkOrient);
+  addEventListener('orientationchange', () => setTimeout(checkOrient, 200));
+  checkOrient();
+
+  const SWIPE = 26;            // distance à parcourir avant de déclencher
+  let sx = 0, sy = 0, fired = false, moved = false;
+  const playing = () => state === 'play' || state === 'pause';
+
+  addEventListener('touchstart', e => {
+    // hors jeu, on laisse les écrans HTML se comporter normalement (boutons, champ)
+    if (!playing()) return;
+    const t = e.touches[0];
+    sx = t.clientX; sy = t.clientY; fired = false; moved = false;
+    if (state === 'pause') return;
+    if (beat && !beat.resolved && (beat.type === 'pump' ||
+        (beat.type === 'panic' && beat.mode === 'mash'))) {
+      press(beat.type === 'pump' ? 'up' : 'down');   // martèlement : chaque tap compte
+      fired = true;
+    }
+    e.preventDefault();
+  }, { passive: false });
+
+  addEventListener('touchmove', e => {
+    if (!playing()) return;
+    e.preventDefault();
+    if (fired || state !== 'play') return;
+    const t = e.touches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+    const ax = Math.abs(dx), ay = Math.abs(dy);
+    if (ax < SWIPE && ay < SWIPE) return;
+    moved = true; fired = true;
+    const h = dx > 0 ? 'right' : 'left', v = dy > 0 ? 'down' : 'up';
+    const ratio = ax / Math.max(1, ay);
+    // une diagonale franche déclenche les deux touches à la fois
+    if (ratio > 0.45 && ratio < 2.2 && ax > SWIPE && ay > SWIPE) { press(v); press(h); }
+    else if (ax > ay) press(h);
+    else press(v);
+  }, { passive: false });
+
+  addEventListener('touchend', e => {
+    if (!playing()) return;
+    e.preventDefault();
+    // un tap simple pendant la pause reprend la partie
+    if (!moved && state === 'pause') {
+      state = 'play';
+      document.getElementById('pauseOverlay').hidden = true;
+      last = performance.now();
+    }
+    fired = false; moved = false;
+  }, { passive: false });
 }
 
 // ---- Panneau de réglages ----
